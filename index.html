@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="ru" class="h-full dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Spot Launcher</title>
+  </head>
+  <body class="h-full">
+    <script>
+      ;(function(){
+        var themes = {
+          spot:    { bg:"0.16 0.006 286", primary:"0.76 0.085 264", accent:"0.85 0.055 264", hex:"#8d9ff5", hex2:"#b9c4fa" },
+          orange:  { bg:"0.08 0.01 260", primary:"0.65 0.22 40",  accent:"0.75 0.18 75",  hex:"#f97316", hex2:"#fbbf24" },
+          fire:    { bg:"0.11 0.02 30",  primary:"0.58 0.24 25",  accent:"0.72 0.19 55",  hex:"#F44336", hex2:"#FF9800" },
+          minecraft:{ bg:"0.12 0.01 260", primary:"0.65 0.2 145",  accent:"0.72 0.18 130", hex:"#4CAF50", hex2:"#8BC34A" },
+          ocean:   { bg:"0.09 0.015 250",primary:"0.62 0.18 245", accent:"0.80 0.12 240", hex:"#4A8FE7", hex2:"#80CAFF" },
+          gold:    { bg:"0.12 0.02 80",  primary:"0.80 0.17 85",  accent:"0.72 0.19 55",  hex:"#FFC107", hex2:"#FF9800" },
+          rose:    { bg:"0.11 0.02 340", primary:"0.55 0.27 355", accent:"0.65 0.28 350", hex:"#E91E63", hex2:"#FF4081" },
+          arctic:  { bg:"0.09 0.01 240", primary:"0.58 0.04 230", accent:"0.78 0.02 230", hex:"#78909C", hex2:"#B0BEC5" }
+        }
+        var id = localStorage.getItem("theme") || "spot"
+        var t = themes[id] || themes.spot
+        var r = document.documentElement.style
+        r.setProperty("--background", "oklch(" + t.bg + ")")
+        r.setProperty("--primary",    "oklch(" + t.primary + ")")
+        r.setProperty("--accent",     "oklch(" + t.accent + ")")
+        r.setProperty("--border",     "oklch(0.17 0.01 260)")
+        r.setProperty("--splash-hex", t.hex)
+        r.setProperty("--splash-hex2",t.hex2)
+      })()
+    </script>
+    <div id="splash">
+      <style>
+        #splash{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#0c0d10;color:#fff;font-family:'Inter',system-ui,-apple-system,sans-serif}
+        #splash:after{content:'';position:absolute;inset:0;background:
+          radial-gradient(1200px 600px at 20% -20%, #5a6ff2 0%, transparent 55%),
+          radial-gradient(900px 500px at 85% 120%, #8d9ff5 0%, transparent 50%),
+          radial-gradient(500px 350px at 70% -15%, rgba(141,159,245,0.08) 0%, transparent 55%)}
+        #splash .grid{position:absolute;inset:0;opacity:.3;background-image:linear-gradient(rgba(255,255,255,0.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.02) 1px,transparent 1px);background-size:64px 64px;mask-image:radial-gradient(circle at 50% 45%,#000 0%,transparent 70%);pointer-events:none}
+        #splash .glow-orb{position:absolute;width:12px;height:12px;border-radius:50%;background:#5a6ff2;filter:blur(2px);opacity:.5;pointer-events:none;animation:floatOrb 18s ease-in-out infinite}
+        #splash .glow-orb.two{background:#8d9ff5;animation-delay:-9s}
+        #splash .stage{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;text-align:center}
+        #splash .logo-container{position:relative;width:140px;height:140px;display:flex;align-items:center;justify-content:center;animation:logoFloat 3s ease-in-out infinite}
+        #splash .logo-ring{position:absolute;inset:-8px;border-radius:50%;border:1px solid rgba(90,111,242,0.15);background:conic-gradient(from 0deg,transparent 0 45%,#5a6ff2 50%,transparent 55% 100%);opacity:.4;filter:blur(1px);animation:ringSpin 8s linear infinite;mask-image:radial-gradient(circle,transparent 60%,#000 62%,#000 72%,transparent 75%)}
+        #splash .logo-glow{position:absolute;inset:-20px;border-radius:50%;background:radial-gradient(circle,#5a6ff2 0%,transparent 70%);opacity:.15;filter:blur(20px);animation:glowPulse 4s ease-in-out infinite}
+        #splash .logo{width:110px;height:110px;object-fit:contain;filter:drop-shadow(0 8px 24px rgba(90,111,242,0.3));animation:logoScale 4s ease-in-out infinite}
+        #splash .title{margin-top:32px;font-size:28px;font-weight:700;letter-spacing:.3px;background:linear-gradient(90deg,#fff 0%,#8d9ff5 50%,#fff 100%);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation:titleShine 5s linear infinite;font-family:'Unbounded','Inter',sans-serif}
+        #splash .subtitle{margin-top:8px;font-size:12px;letter-spacing:.3em;text-transform:uppercase;color:rgba(255,255,255,.25);font-weight:500}
+        #splash .progress-container{margin-top:40px;width:min(380px,80vw)}
+        #splash .progress-bar{height:4px;border-radius:4px;background:rgba(255,255,255,0.08);overflow:hidden;position:relative}
+        #splash .progress-fill{height:100%;background:linear-gradient(90deg,#5a6ff2,#8d9ff5);width:0%;transition:width .4s cubic-bezier(.25,.1,.25,1);box-shadow:0 0 20px rgba(90,111,242,0.4)}
+        #splash .progress-fill:after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.4),transparent);transform:translateX(-100%);animation:progressSweep 2s linear infinite}
+        #splash .status{margin-top:16px;font-size:13px;letter-spacing:.15px;color:rgba(255,255,255,.5);font-weight:400}
+        #splash .status .highlight{color:#8d9ff5;font-weight:500}
+        #splash .loading-dots{display:inline-flex;gap:4px;margin-left:8px}
+        #splash .loading-dots span{width:5px;height:5px;border-radius:50%;background:#5a6ff2;animation:dotBounce 1.4s ease-in-out infinite}
+        #splash .loading-dots span:nth-child(2){animation-delay:.2s}
+        #splash .loading-dots span:nth-child(3){animation-delay:.4s}
+        @keyframes floatOrb{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(80px,-60px) scale(1.2)}66%{transform:translate(-40px,40px) scale(0.9)}}
+        @keyframes logoFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+        @keyframes ringSpin{to{transform:rotate(360deg)}}
+        @keyframes glowPulse{0%,100%{opacity:.12}50%{opacity:.22}}
+        @keyframes logoScale{0%,100%{transform:scale(1)}50%{transform:scale(1.04)}}
+        @keyframes titleShine{to{background-position:-200% 0}}
+        @keyframes progressSweep{to{transform:translateX(100%)}}
+        @keyframes dotBounce{0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-6px);opacity:1}}
+        #splash.fade{opacity:0;transition:opacity .5s cubic-bezier(.4,0,.2,1)}
+      </style>
+      <div class="grid"></div>
+      <div class="glow-orb" style="top:15%;left:12%"></div>
+      <div class="glow-orb two" style="bottom:18%;right:15%"></div>
+      <div class="stage">
+        <div class="logo-container">
+          <div class="logo-ring"></div>
+          <div class="logo-glow"></div>
+          <img class="logo" src="./spot-logo-mono-2.png" alt="Spot" draggable="false" />
+        </div>
+        <div class="title">Spot Launcher</div>
+        <div class="subtitle">Инициализация</div>
+        <div class="progress-container">
+          <div class="progress-bar">
+            <div class="progress-fill" id="splash-bar"></div>
+          </div>
+        </div>
+        <div class="status" id="splash-status">Загрузка<span class="loading-dots"><span></span><span></span><span></span></span></div>
+      </div>
+    </div>
+    <div id="root" class="h-full"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

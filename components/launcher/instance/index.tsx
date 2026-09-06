@@ -1,0 +1,411 @@
+import { useCallback, useEffect, useState } from "react"
+import { InstanceDetail } from "./instance-detail"
+import { InstanceList } from "./instance-list"
+import { InstanceModrinth } from "./instance-modrinth"
+import { InstanceCurseForge } from "./instance-curseforge"
+import { InstanceFtb } from "./instance-ftb"
+import { InstanceHeader } from "./instance-header"
+import { InstanceTrashView } from "./instance-trash-view"
+import { InstanceImportOverlay } from "./instance-import-overlay"
+import { InstanceModal } from "./instance-modal"
+import { useBuilds } from "./use-builds"
+import { useModSearch } from "./use-mod-search"
+import { useImport } from "./use-import"
+import { useMinecraftVersionOptions } from "@/src/hooks/use-minecraft-version-options"
+import { useAccounts } from "@/src/AccountsContext"
+import { useBuildLaunch } from "@/src/hooks/use-build-launch"
+import type { ViewMode, DetailTab, ModSearchResult, ModVersion, ModSort } from "./types"
+
+const MODRINTH_SORT_OPTIONS: ModSort[] = ["relevance", "downloads", "follows", "newest", "updated"]
+const CURSEFORGE_SORT_OPTIONS: ModSort[] = ["downloads", "newest", "updated", "featured", "rating"]
+
+export function InstancePage() {
+  const [view, setView] = useState<ViewMode>("my")
+  const [detailTab, setDetailTab] = useState<DetailTab>("general")
+  const [createOpen, setCreateOpen] = useState(false)
+
+  const { activeAccount } = useAccounts()
+  const { launchInstance } = useBuildLaunch({ account: activeAccount ?? undefined })
+
+  const [mrSearch, setMrSearch] = useState("")
+  const [mrResults, setMrResults] = useState<ModSearchResult[]>([])
+  const [mrLoading, setMrLoading] = useState(false)
+
+  const [cfSearch, setCfSearch] = useState("")
+  const [cfResults, setCfResults] = useState<ModSearchResult[]>([])
+  const [cfLoading, setCfLoading] = useState(false)
+  const [ftbSearch, setFtbSearch] = useState("")
+  const [ftbResults, setFtbResults] = useState<ModSearchResult[]>([])
+  const [ftbLoading, setFtbLoading] = useState(false)
+  const [mrSortBy, setMrSortBy] = useState<ModSort>("downloads")
+  const [cfSortBy, setCfSortBy] = useState<ModSort>("downloads")
+  const { visibleVersions, versionsLoaded } = useMinecraftVersionOptions()
+  const [selectedVersion, setSelectedVersion] = useState("all")
+  const [selectedModLoader, setSelectedModLoader] = useState("all")
+  const [mrPage, setMrPage] = useState(0)
+  const [cfPage, setCfPage] = useState(0)
+  const [ftbPage, setFtbPage] = useState(0)
+  const [mrTotalHits, setMrTotalHits] = useState(0)
+  const [cfTotalHits, setCfTotalHits] = useState(0)
+  const [ftbTotalHits, setFtbTotalHits] = useState(0)
+
+  const {
+    builds, setBuilds, activeBuildId, setActiveBuildId, activeBuild,
+    fileInputRef, createBuild, deleteBuild, trashBuild, undoTrashBuild, purgeBuildTrash, duplicateBuild, renameBuild, exportBuildZip, exportBuildModlist, setBuildGroup, renameGroup, deleteGroup, collapsedGroups, toggleGroupCollapse, groups,
+    updateBuild, addModToBuild, addLocalModToBuild,
+    addContentToBuild, addLocalContentToBuild, removeContentFromBuild, reloadBuilds,
+    toggleItemEnabled, updateItemVersion,
+  } = useBuilds()
+
+  // CLI launch (--launch <buildName>, e.g. from a desktop shortcut)
+  useEffect(() => {
+    return window.electronAPI?.onCliLaunchBuild?.(async (buildName) => {
+      if (!buildName) return
+      const build = builds.find((b) => b.name === buildName)
+      if (!build) return
+      setActiveBuildId(build.id)
+      setView("detail")
+      setDetailTab("general")
+      await launchInstance(build)
+    })
+  }, [builds, launchInstance])
+
+  const {
+    modSearch, setModSearch, modLoading,
+    installingModSlug, setInstallingModSlug,
+    modSource, setModSource, modSortBy, setModSortBy,
+    modCategories, setModCategories,
+    modPage, setModPage, modTotalHits, modTotalPages,
+    categories,
+    selectedDetails, modalTab, setModalTab,
+    loadingModal, displayedModalVersions, displayResults,
+    modFileInputRef, openProjectModal, closeModal, resetModSearch,
+    isInstalledFn,
+  } = useModSearch(activeBuild, detailTab, view, activeBuildId)
+
+  const {
+    importProgress, importError, isCancellingImport, downloadingSlug, cfDownloadingId, ftbDownloadingId,
+    cancelImport, downloadFromModrinth, downloadVersionFromModrinth, downloadFromCurseforge, downloadVersionFromCurseforge, downloadFromFtb, downloadVersionFromFtb, handleImportFile,
+  } = useImport(setBuilds, () => setView("my"))
+
+  const fetchMrModpacks = useCallback(async (query: string, currentPage: number) => {
+    setMrLoading(true)
+    try {
+      const searchQuery = query.trim()
+      const resp = await window.electronAPI?.modsModrinthSearch(
+        searchQuery,
+        "modpack",
+        selectedVersion === "all" ? undefined : selectedVersion,
+        selectedModLoader === "all" ? undefined : selectedModLoader as "vanilla" | "fabric" | "quilt" | "neoforge",
+        mrSortBy,
+        currentPage,
+      )
+      const nextResults = resp?.results ?? []
+      setMrResults(nextResults)
+      setMrTotalHits(resp?.totalCount ?? 0)
+    } catch {
+      setMrResults([])
+      setMrTotalHits(0)
+    }
+    finally { setMrLoading(false) }
+  }, [mrSortBy, selectedModLoader, selectedVersion])
+
+  const fetchCfModpacks = useCallback(async (query: string, currentPage: number) => {
+    setCfLoading(true)
+    try {
+      const searchQuery = query.trim()
+      const resp = await window.electronAPI?.modsCurseforgeSearch(
+        searchQuery,
+        "modpack",
+        selectedVersion === "all" ? undefined : selectedVersion,
+        selectedModLoader === "all" ? undefined : selectedModLoader,
+        cfSortBy,
+        currentPage,
+      )
+      const nextResults = resp?.results ?? []
+      setCfResults(nextResults)
+      setCfTotalHits(resp?.totalCount ?? 0)
+    } catch {
+      setCfResults([])
+      setCfTotalHits(0)
+    }
+    finally { setCfLoading(false) }
+  }, [cfSortBy, selectedModLoader, selectedVersion])
+
+  useEffect(() => {
+    if (view !== "modrinth") return
+    const t = setTimeout(() => void fetchMrModpacks(mrSearch, mrPage), 350)
+    return () => clearTimeout(t)
+  }, [fetchMrModpacks, mrSearch, mrPage, mrSortBy, selectedModLoader, selectedVersion, view])
+
+  useEffect(() => {
+    if (view === "modrinth" && !mrSearch.trim()) {
+      fetchMrModpacks("", mrPage)
+    }
+  }, [view, mrPage])
+
+  useEffect(() => { setMrPage(0) }, [mrSearch, mrSortBy, selectedModLoader, selectedVersion])
+
+  useEffect(() => {
+    if (view !== "curseforge") return
+    const t = setTimeout(() => void fetchCfModpacks(cfSearch, cfPage), 350)
+    return () => clearTimeout(t)
+  }, [cfSearch, cfPage, cfSortBy, fetchCfModpacks, selectedModLoader, selectedVersion, view])
+
+  useEffect(() => {
+    if (view === "curseforge" && !cfSearch.trim()) {
+      fetchCfModpacks("", cfPage)
+    }
+  }, [view, cfPage])
+
+  useEffect(() => { setCfPage(0) }, [cfSearch, cfSortBy, selectedModLoader, selectedVersion])
+
+  const fetchFtbModpacks = useCallback(async (query: string, currentPage: number) => {
+    setFtbLoading(true)
+    try {
+      const resp = await window.electronAPI?.modsFtbSearch(query.trim(), currentPage)
+      const nextResults = resp?.results ?? []
+      setFtbResults(nextResults)
+      setFtbTotalHits(resp?.totalCount ?? 0)
+    } catch {
+      setFtbResults([])
+      setFtbTotalHits(0)
+    }
+    finally { setFtbLoading(false) }
+  }, [])
+
+  useEffect(() => {
+    if (view !== "ftb") return
+    const t = setTimeout(() => void fetchFtbModpacks(ftbSearch, ftbPage), 350)
+    return () => clearTimeout(t)
+  }, [fetchFtbModpacks, ftbSearch, ftbPage, view])
+
+  useEffect(() => {
+    if (view === "ftb" && !ftbSearch.trim()) {
+      fetchFtbModpacks("", ftbPage)
+    }
+  }, [view, ftbPage])
+
+  useEffect(() => { setFtbPage(0) }, [ftbSearch])
+
+  const openBuildDetail = useCallback((id: string) => {
+    setActiveBuildId(id)
+    setView("detail")
+    setDetailTab("general")
+  }, [setActiveBuildId])
+
+  const goToMyBuilds = useCallback(() => {
+    setView("my"); setActiveBuildId(null); setDetailTab("general"); resetModSearch()
+  }, [resetModSearch, setActiveBuildId])
+
+  const handleOpenCreate = useCallback(() => setCreateOpen(true), [])
+  const totalBuilds = builds.length
+  const mrTotalPages = Math.max(1, Math.ceil(mrTotalHits / 20))
+  const cfTotalPages = Math.max(1, Math.ceil(cfTotalHits / 20))
+  const ftbTotalPages = Math.max(1, Math.ceil(ftbTotalHits / 20))
+
+  const handleInstallModalVersion = useCallback(async (version: ModVersion) => {
+    if (!selectedDetails) return
+
+    const modalItem: ModSearchResult = {
+      id: selectedDetails.id,
+      slug: selectedDetails.slug,
+      name: selectedDetails.name,
+      summary: selectedDetails.summary,
+      iconUrl: selectedDetails.iconUrl,
+      downloadCount: selectedDetails.downloadCount,
+      categories: selectedDetails.categories,
+      source: selectedDetails.source,
+      projectId: selectedDetails.projectId,
+      modId: selectedDetails.modId,
+      primaryFileId: Number(version.id),
+      primaryFileName: version.fileName,
+    }
+
+    closeModal()
+    if (selectedDetails.source === "modrinth") {
+      await downloadVersionFromModrinth(modalItem, version.id)
+      return
+    }
+
+    if (selectedDetails.source === "ftb") {
+      await downloadVersionFromFtb(modalItem, Number(version.id.replace("ftb-", "")))
+      return
+    }
+
+    if (selectedDetails.modId) {
+      await downloadVersionFromCurseforge(modalItem, Number(version.id))
+    }
+  }, [closeModal, downloadVersionFromCurseforge, downloadVersionFromFtb, downloadVersionFromModrinth, selectedDetails])
+
+  if (view === "detail" && activeBuild) {
+    return (
+      <InstanceDetail
+        activeBuild={activeBuild}
+        detailTab={detailTab}
+        setDetailTab={setDetailTab}
+        goToMyBuilds={goToMyBuilds}
+        onLaunch={() => void launchInstance(activeBuild)}
+        updateBuild={updateBuild}
+        renameBuild={renameBuild}
+        fileInputRef={fileInputRef}
+        reloadBuilds={reloadBuilds}
+        modSearch={modSearch}
+        setModSearch={setModSearch}
+        modSource={modSource}
+        setModSource={setModSource}
+        modSortBy={modSortBy}
+        setModSortBy={setModSortBy}
+        modCategories={modCategories}
+        setModCategories={setModCategories}
+        categories={categories}
+        modFileInputRef={modFileInputRef}
+        addLocalModToBuild={addLocalModToBuild}
+        addLocalContentToBuild={addLocalContentToBuild}
+        removeContentFromBuild={removeContentFromBuild}
+        modLoading={modLoading}
+        modTotalHits={modTotalHits}
+        modTotalPages={modTotalPages}
+        modPage={modPage}
+        setModPage={setModPage}
+        displayResults={displayResults}
+        isInstalledFn={isInstalledFn}
+        openProjectModal={openProjectModal}
+        installingModSlug={installingModSlug}
+        setInstallingModSlug={setInstallingModSlug}
+        addModToBuild={addModToBuild}
+        addContentToBuild={addContentToBuild}
+        setBuilds={setBuilds}
+        toggleItemEnabled={toggleItemEnabled}
+        updateItemVersion={updateItemVersion}
+        selectedDetails={selectedDetails}
+        modalTab={modalTab}
+        setModalTab={setModalTab}
+        loadingModal={loadingModal}
+        displayedModalVersions={displayedModalVersions}
+        closeModal={closeModal}
+      />
+    )
+  }
+
+  return (
+    <div className="h-full flex flex-col animate-in fade-in-0 slide-in-from-bottom-4 duration-300">
+      <InstanceImportOverlay
+        importProgress={importProgress}
+        importError={importError}
+        isCancelling={isCancellingImport}
+        onCancel={cancelImport}
+      />
+
+      <InstanceHeader
+        view={view}
+        setView={setView}
+        onImportFile={handleImportFile}
+        createOpen={createOpen}
+        setCreateOpen={setCreateOpen}
+        onCreate={createBuild}
+        onImported={reloadBuilds}
+      />
+
+      {view === "my" && (
+        <InstanceList
+          builds={builds}
+          totalBuilds={totalBuilds}
+          onCreate={handleOpenCreate}
+          onDelete={deleteBuild}
+          onTrash={trashBuild}
+          onUndoTrash={undoTrashBuild}
+          onDuplicate={duplicateBuild}
+          onExportZip={exportBuildZip}
+          onExportModlist={exportBuildModlist}
+          onSetGroup={setBuildGroup}
+          onRenameGroup={renameGroup}
+          onDeleteGroup={deleteGroup}
+          onOpen={openBuildDetail}
+          groups={groups}
+          collapsedGroups={collapsedGroups}
+          onToggleGroupCollapse={toggleGroupCollapse}
+        />
+      )}
+
+      {view === "modrinth" && (
+        <InstanceModrinth
+          search={mrSearch}
+          setSearch={setMrSearch}
+          loading={mrLoading}
+          results={mrResults}
+          downloadingSlug={downloadingSlug}
+          sortBy={mrSortBy}
+          setSortBy={setMrSortBy}
+          sortOptions={MODRINTH_SORT_OPTIONS}
+          selectedVersion={selectedVersion}
+          setSelectedVersion={setSelectedVersion}
+          versionsLoaded={versionsLoaded}
+          versionOptions={visibleVersions}
+          selectedModLoader={selectedModLoader}
+          setSelectedModLoader={setSelectedModLoader}
+          page={mrPage}
+          totalPages={mrTotalPages}
+          onPageChange={setMrPage}
+          onOpenDetails={openProjectModal}
+          onDownload={downloadFromModrinth}
+        />
+      )}
+
+      {view === "curseforge" && (
+        <InstanceCurseForge
+          cfSearch={cfSearch}
+          setCfSearch={setCfSearch}
+          cfLoading={cfLoading}
+          cfResults={cfResults}
+          cfDownloadingId={cfDownloadingId}
+          sortBy={cfSortBy}
+          setSortBy={setCfSortBy}
+          sortOptions={CURSEFORGE_SORT_OPTIONS}
+          selectedVersion={selectedVersion}
+          setSelectedVersion={setSelectedVersion}
+          versionsLoaded={versionsLoaded}
+          versionOptions={visibleVersions}
+          selectedModLoader={selectedModLoader}
+          setSelectedModLoader={setSelectedModLoader}
+          page={cfPage}
+          totalPages={cfTotalPages}
+          onPageChange={setCfPage}
+          onOpenDetails={openProjectModal}
+          onDownload={downloadFromCurseforge}
+        />
+      )}
+
+      {view === "trash" && (
+        <InstanceTrashView
+          goToMyBuilds={goToMyBuilds}
+        />
+      )}
+
+      {view === "ftb" && (
+        <InstanceFtb
+          ftbSearch={ftbSearch}
+          setFtbSearch={setFtbSearch}
+          ftbLoading={ftbLoading}
+          ftbResults={ftbResults}
+          ftbDownloadingId={ftbDownloadingId}
+          page={ftbPage}
+          totalPages={ftbTotalPages}
+          onPageChange={setFtbPage}
+          onOpenDetails={openProjectModal}
+          onDownload={downloadFromFtb}
+        />
+      )}
+
+      <InstanceModal
+        selectedDetails={selectedDetails}
+        modalTab={modalTab}
+        setModalTab={setModalTab}
+        loadingModal={loadingModal}
+        displayedModalVersions={displayedModalVersions}
+        onInstallVersion={handleInstallModalVersion}
+        onClose={closeModal}
+      />
+    </div>
+  )
+}

@@ -1,0 +1,99 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-electron/
+release/
+
+# Local sub-package build outputs (TS build artifacts, can be regenerated)
+packages/*/lib/
+packages/*/*.tsbuildinfo
+
+# IDE
+.vscode/
+.idea/
+.roo/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Environment & secrets
+.env
+.env*.local
+.env.production
+.env.development
+electron/main/cloud/credentials.generated.ts
+
+# Cache
+.codex/
+.xneonlauncher/
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# v0 sandbox artifacts
+__v0_runtime_loader.js
+__v0_devtools.tsx
+__v0_jsx-dev-runtime.ts
+.snowflake/
+.v0-trash/
+.vercel/
+next.user-config.*
+
+# Large/legacy files
+all-icons_old_no_delete_noedit.json
+
+# Electron builder output artifacts
+*.blockmap
+
+# npm pack artifacts
+packages/*/*.tgz
+
+# Cloud server (separate project)
+cloud-server/
+
+# AI/tool workspace dirs
+.opencode/
+.kilo/
+.playwright-mcp/
+.codex/
+.roo/
+plans/
+
+# Cloud server data
+data/
+*.db
+*.db-shm
+*.db-wal
+.npmrc
+!/.npmrc
+
+# Temp debug/deploy/test scripts
+check-*.js
+check_*.py
+deploy*.js
+deploy*.sh
+force-*.js
+get_session.py
+launch-*.mjs
+launch-*.js
+rebuild-*.js
+restart-*.js
+ssh-check.js
+test-*.js
+test-*.mjs
+update-*.js
+
+# Temp docs
+PRODUCT_SPECIFICATION.md

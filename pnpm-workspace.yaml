@@ -1,0 +1,17 @@
+packages:
+  - "packages/*"
+
+allowBuilds:
+  cpu-features: true
+  electron-winstaller: true
+  node-datachannel: true
+  register-scheme: true
+  ssh2: true
+
+strictDepBuilds: false
+blockExoticSubdeps: false
+
+overrides:
+  "@emoji-mart/react>react": "19.2.8"
+  "shell-quote": ">=1.9.0"
+  "@xnlc/core>adm-zip": "^0.6.0"

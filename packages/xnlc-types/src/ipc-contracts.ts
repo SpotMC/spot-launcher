@@ -1,0 +1,538 @@
+// ============================================================
+// @xnlc/types — IPC Contracts
+// Single source of truth for all IPC channel signatures
+// ============================================================
+
+import type {
+  DbAccount,
+  DbBuild,
+  DbBuildMod,
+  WorldInfo,
+  DatapackInfo,
+  ScreenshotInfo,
+  AuthPayload,
+  AuthSession,
+  MinecraftNewsEntry,
+  MinecraftVersionInfo,
+  ImportableLauncherInstance,
+
+  BuildExportCategory,
+
+  JavaDetectResult,
+  BuildIntentScanResult,
+  ModpackImportResult,
+  ImportProgress,
+  CloudUser,
+  CloudFile,
+  CloudStorageInfo,
+  CleanupFn,
+  P2PRoom,
+  P2PRoomMember,
+  P2PLogEntry,
+  P2PConnState,
+  P2PLanServer,
+  P2PRole,
+  P2PAuthResult,
+  P2PRoomOpResult,
+  P2PChatMessage,
+  McProfile,
+  LibrarySkin,
+} from "./domain-types.js"
+
+import type {
+  ModContentType,
+  ModSort,
+  ModLoaderFilter,
+  ModSearchResponse,
+  ModDetails,
+  ModVersion,
+  ModDependency,
+  ModSearchResult,
+  FTBVersionManifest,
+} from "./mod-types.js"
+
+import type {
+  MinecraftLaunchParams,
+  MinecraftProgress,
+  JavaProgress,
+} from "./launch-types.js"
+
+// ── IPC Invoke Channel Map ──────────────────────────────────
+// Maps channel name → { args: tuple of arguments, return: return type }
+
+export interface IpcInvokeMap {
+  // ── Window ──
+  "window:is-maximized": { args: []; return: boolean }
+
+  // ── Auth ──
+  "auth:elyby-login": { args: []; return: AuthPayload }
+  "auth:elyby-device-start": {
+    args: []
+    return: {
+      deviceCode: string
+      userCode: string
+      verificationUri: string
+      verificationUriComplete: string
+      expiresIn: number
+      interval: number
+    }
+  }
+  "auth:elyby-device-poll": {
+    args: [deviceCode: string]
+    return: { status: "pending"; slowDown?: boolean } | { status: "expired" } | { status: "complete"; account: AuthPayload } | { status: "error"; message: string; retryable?: boolean }
+  }
+  "auth:xnskins-login": { args: []; return: AuthPayload }
+  "auth:xnskins-device-start": {
+    args: []
+    return: {
+      deviceCode: string
+      userCode: string
+      verificationUri: string
+      verificationUriComplete: string
+      expiresIn: number
+      interval: number
+    }
+  }
+  "auth:xnskins-device-poll": {
+    args: [deviceCode: string]
+    return: { status: "pending"; slowDown?: boolean } | { status: "expired" } | { status: "complete"; account: AuthPayload } | { status: "error"; message: string; retryable?: boolean }
+  }
+  "auth:microsoft-login": { args: []; return: AuthPayload }
+  "auth:microsoft-device-start": {
+    args: []
+    return: {
+      deviceCode: string
+      userCode: string
+      verificationUri: string
+      verificationUriComplete: string
+      expiresIn: number
+      interval: number
+    }
+  }
+  "auth:microsoft-device-poll": {
+    args: [deviceCode: string]
+    return: { status: "pending"; slowDown?: boolean } | { status: "expired" } | { status: "complete"; account: AuthPayload } | { status: "error"; message: string; retryable?: boolean }
+  }
+
+  // ── Fetch ──
+  "fetch:minecraft-news": { args: []; return: MinecraftNewsEntry[] }
+
+  // ── Database ──
+  "db:load-accounts": { args: []; return: DbAccount[] }
+  "db:save-account": { args: [account: DbAccount]; return: void }
+  "db:remove-account": { args: [id: string]; return: void }
+  "db:load-builds": { args: []; return: DbBuild[] }
+  "db:save-builds": { args: [builds: DbBuild[]]; return: void }
+  "db:is-fallback-storage": { args: []; return: { isFallback: boolean } }
+  "db:reorder-accounts": { args: [ids: string[]]; return: void }
+
+  // ── Build / Intent ──
+  "build:scan-intent-content": { args: [buildName: string]; return: BuildIntentScanResult }
+  "build:get-intent-path": { args: [buildId: string]; return: string }
+  "build:get-instances-root": { args: []; return: string }
+  "common:pick-folder": { args: [title?: string]; return: string | null }
+  "build:set-instances-root": { args: [newRoot: string]; return: { success: boolean; root?: string; error?: string } }
+  "build:save-mod-to-intent": { args: [buildId: string, url: string, fileName: string]; return: string | null }
+  "build:save-local-mod-to-intent": { args: [buildId: string, localFilePath: string]; return: string | null }
+  "build:save-content-to-intent": { args: [buildId: string, contentType: "mod" | "resourcepack" | "shader", url: string, fileName: string]; return: string | null }
+  "build:save-local-content-to-intent": { args: [buildId: string, contentType: "mod" | "resourcepack" | "shader", localFilePath: string]; return: string | null }
+  "build:delete-content-from-intent": { args: [buildId: string, contentType: "mod" | "resourcepack" | "shader", fileName: string]; return: { success: boolean; error?: string } }
+  "build:set-content-enabled": { args: [buildId: string, contentType: "mod" | "resourcepack" | "shader", fileName: string, enabled: boolean]; return: { success: boolean; fileName?: string; error?: string } }
+  "build:set-intent-path": { args: [buildId: string, intentPath: string]; return: void }
+  "build:delete-intent": { args: [buildName: string]; return: { success: boolean; error?: string } }
+  "build:import-modrinth": { args: [buildName: string, projectSlug: string, versionId?: string]; return: ModpackImportResult }
+  "build:import-curseforge": { args: [buildName: string, modId: number, fileId: number]; return: ModpackImportResult }
+  "build:import-ftb": { args: [buildName: string, modpackId: number, versionId: number]; return: ModpackImportResult }
+  "build:open-and-import": { args: []; return: ModpackImportResult & { name?: string; description?: string; icon?: string; source?: "modrinth" | "curseforge"; intentPath?: string } }
+  "build:cancel-import": { args: []; return: { success: boolean } }
+  "build:upload-to-cloud": { args: [buildName: string, cloudToken: string, category?: string]; return: { success: boolean; error?: string } }
+  "build:copy": { args: [buildName: string, newName: string]; return: { success: boolean; intentPath?: string; error?: string } }
+  "build:rename-intent": { args: [oldName: string, newName: string]; return: { success: boolean; intentPath?: string; error?: string } }
+  "build:export-zip": { args: [buildName: string, buildNameLabel: string, categories?: BuildExportCategory[]]; return: { success: boolean; path?: string; error?: string } }
+  "build:export-modlist": { args: [buildName: string, buildNameLabel: string, format: "html" | "markdown" | "json" | "csv" | "plaintext"]; return: { success: boolean; path?: string; error?: string } }
+  "build:move-intent-to-trash": { args: [dirName: string]; return: { success: boolean; trashName?: string; error?: string } }
+  "build:restore-intent-from-trash": { args: [dirName: string, trashName: string]; return: { success: boolean; error?: string } }
+  "build:purge-trash": { args: []; return: { success: boolean; error?: string } }
+  "build:list-trash": { args: []; return: Array<{ trashName: string; originalName: string; trashedAt: number }> }
+  "build:delete-trash-item": { args: [trashName: string]; return: { success: boolean; error?: string } }
+
+  // ── AI ──
+  "ai:get-config": { args: []; return: { apiKey: string; endpoint: string; model: string } }
+  "ai:save-config": { args: [config: { apiKey: string; endpoint: string; model: string }]; return: void }
+  "ai:analyze-crash": { args: [logContent: string, sessionId?: string]; return: { success: boolean; analysis?: string; error?: string } }
+  "ai:chat-send": { args: [sessionId: string, userMessage: string]; return: { success: boolean; analysis?: string; error?: string } }
+  "ai:sessions-list": { args: []; return: Array<{ id: string; title: string; createdAt: number; updatedAt: number }> }
+  "ai:sessions-create": { args: [id: string, title: string]; return: void }
+  "ai:sessions-rename": { args: [id: string, title: string]; return: void }
+  "ai:sessions-delete": { args: [id: string]; return: void }
+  "ai:messages-list": { args: [sessionId: string]; return: Array<{ id: string; role: string; content: string; createdAt: number }> }
+
+  // ── Launcher Import ──
+  "launcher:discover-importable-instances": { args: []; return: ImportableLauncherInstance[] }
+  "launcher:import-gdlauncher-instances": { args: [ids: string[]]; return: { success: boolean; imported: number; error?: string } }
+  "launcher:import-instances": { args: [ids: string[]]; return: { success: boolean; imported: number; error?: string } }
+
+  // ── Mods (Modrinth) ──
+  "mods:modrinth-search": { args: [query: string, contentType?: ModContentType, gameVersion?: string, modLoader?: ModLoaderFilter, sortBy?: ModSort, page?: number, categories?: string[]]; return: ModSearchResponse }
+  "mods:modrinth-details": { args: [slug: string]; return: ModDetails | null }
+  "mods:modrinth-versions": { args: [slug: string]; return: ModVersion[] }
+
+  // ── Mods (CurseForge) ──
+  "mods:curseforge-search": { args: [query: string, contentType?: ModContentType, gameVersion?: string, modLoader?: string, sortBy?: ModSort, page?: number, categories?: string[]]; return: ModSearchResponse }
+  "mods:curseforge-details": { args: [modId: number]; return: ModDetails | null }
+  "mods:curseforge-download-url": { args: [fileId: number, modId: number]; return: string | null }
+  "mods:curseforge-featured": { args: [gameVersion?: string]; return: { popular: ModSearchResult[]; trending: ModSearchResult[] } }
+  "mods:resolve-dependencies": { args: [version: ModVersion, source: "modrinth" | "curseforge"]; return: ModDependency[] }
+
+  // ── Mods (FTB / Feed The Beast) ──
+  "mods:ftb-search": { args: [query: string, page?: number]; return: ModSearchResponse }
+  "mods:ftb-details": { args: [id: number]; return: ModDetails | null }
+  "mods:ftb-version": { args: [id: number, versionId: number]; return: FTBVersionManifest | null }
+  "mods:ftb-changelog": { args: [id: number, versionId: number]; return: string }
+
+  // ── Mods (Categories & Tags) ──
+  "mods:modrinth-categories": { args: []; return: any[] }
+  "mods:curseforge-categories": { args: []; return: (import("./mod-types.js").ModCategory)[] }
+  "mods:modrinth-loaders": { args: []; return: string[] }
+  "mods:modrinth-game-versions": { args: []; return: string[] }
+
+  // ── Minecraft ──
+  "minecraft:get-versions": { args: []; return: MinecraftVersionInfo[] }
+  "minecraft:get-latest-release": { args: []; return: string | null }
+  "minecraft:get-latest-snapshot": { args: []; return: string | null }
+  "minecraft:get-fabric-game-versions": { args: []; return: { version: string; stable: boolean }[] }
+  "minecraft:get-fabric-versions": { args: [mcVersion: string]; return: { version: string; stable: boolean }[] }
+  "minecraft:get-fabric-supported": { args: []; return: string[] }
+  "minecraft:get-liteloader-versions": { args: [mcVersion: string]; return: { version: string; stable: boolean }[] }
+  "minecraft:get-liteloader-recommended": { args: [mcVersion: string]; return: string | null }
+  "minecraft:get-liteloader-supported": { args: []; return: string[] }
+  "minecraft:get-quilt-game-versions": { args: []; return: { version: string; stable: boolean }[] }
+  "minecraft:get-quilt-versions": { args: [mcVersion: string]; return: { version: string; stable: boolean }[] }
+  "minecraft:get-quilt-supported": { args: []; return: string[] }
+  "minecraft:get-optifine-versions": { args: [mcVersion: string]; return: { filename: string; isPreview: boolean }[] }
+  "minecraft:get-optifine-recommended": { args: [mcVersion: string]; return: string | null }
+  "minecraft:get-optifine-supported": { args: []; return: string[] }
+  "minecraft:get-neoforge-versions": { args: [mcVersion: string]; return: { version: string; stable: boolean }[] }
+  "minecraft:get-neoforge-recommended": { args: [mcVersion: string]; return: string | null }
+  "minecraft:get-neoforge-supported": { args: []; return: string[] }
+  "minecraft:get-forge-versions": { args: [mcVersion: string]; return: { version: string; stable: boolean }[] }
+  "minecraft:get-forge-recommended": { args: [mcVersion: string]; return: string | null }
+  "minecraft:get-forge-supported": { args: []; return: string[] }
+  "minecraft:get-custom-versions": { args: []; return: string[] }
+  "minecraft:set-offline-auth": { args: [username: string]; return: AuthSession | null }
+  "minecraft:get-game-dir": { args: []; return: string }
+  "minecraft:get-auth": { args: []; return: AuthSession | null }
+  "minecraft:launch": { args: [params: MinecraftLaunchParams]; return: { success: boolean; error?: string } }
+  "minecraft:stop": { args: []; return: void }
+  "minecraft:is-running": { args: []; return: boolean }
+
+  // ── Settings ──
+  "settings:get": { args: [key: string]; return: string | undefined }
+  "settings:set": { args: [key: string, value: string]; return: void }
+
+  // ── Content ──
+  "content:install-remote": { args: [contentType: "mod" | "resourcepack" | "shader", url: string, fileName: string]; return: { success: boolean; filePath?: string; error?: string } }
+
+  // ── Worlds ──
+  "worlds:list": { args: [buildName: string]; return: WorldInfo[] }
+  "worlds:rename": { args: [buildName: string, folder: string, newName: string]; return: { success: boolean; error?: string } }
+  "worlds:delete": { args: [buildName: string, folder: string]; return: { success: boolean; error?: string } }
+  "worlds:set-icon": { args: [buildName: string, folder: string, dataUrl: string]; return: { success: boolean; error?: string } }
+  "worlds:list-datapacks": { args: [buildName: string, folder: string]; return: DatapackInfo[] }
+  "worlds:install-datapack-remote": { args: [buildName: string, folder: string, url: string, fileName: string]; return: { success: boolean; path?: string; error?: string } }
+  "worlds:install-datapack-local": { args: [buildName: string, folder: string, localFilePath: string]; return: { success: boolean; path?: string; error?: string } }
+  "worlds:delete-datapack": { args: [buildName: string, folder: string, fileName: string]; return: { success: boolean; error?: string } }
+
+  // ── Screenshots ──
+  "screenshots:list": { args: [buildName: string]; return: ScreenshotInfo[] }
+  "screenshots:get": { args: [buildName: string, fileName: string]; return: string | null }
+  "screenshots:delete": { args: [buildName: string, fileName: string]; return: { success: boolean; error?: string } }
+  "screenshots:rename": { args: [buildName: string, fileName: string, newName: string]; return: { success: boolean; error?: string } }
+
+  // ── Shell ──
+  "shell:open-external": { args: [url: string]; return: void }
+  "shell:open-launcher-folder": { args: []; return: void }
+  "shell:open-path": { args: [dirPath: string]; return: void }
+
+  // ── Servers ──
+  "servers:list": { args: [buildName: string]; return: Array<{ name: string; ip: string }> }
+  "servers:write-dat": { args: [buildName: string, servers: Array<{ name: string; ip: string }>]; return: { success: boolean; error?: string } }
+
+  // ── Logs ──
+  "logs:share-to-mclogs": { args: [content: string]; return: { success: boolean; url?: string; error?: string } }
+
+  // ── Skins ──
+  "skins:get-profile": { args: [accountId?: string]; return: McProfile | null }
+  "skins:upload-skin": { args: [params: { filePath: string; variant: "classic" | "slim"; accountId?: string }]; return: boolean }
+  "skins:delete-skin": { args: [accountId?: string]; return: boolean }
+  "skins:set-cape": { args: [params: { capeId: string | null; accountId?: string }]; return: boolean }
+  "skins:list-library": { args: [accountId: string]; return: LibrarySkin[] }
+  "skins:save-to-library": { args: [params: { filePath: string; name: string; variant: "classic" | "slim"; accountId: string; capeId?: string | null }]; return: LibrarySkin }
+  "skins:delete-from-library": { args: [id: string]; return: boolean }
+  "skins:update-variant": { args: [params: { id: string; variant: "classic" | "slim"; capeId?: string | null; name?: string }]; return: boolean }
+  "skins:apply-library-skin": { args: [params: { skinId: string; accountId: string }]; return: boolean }
+  "skins:import-from-url": { args: [params: { url: string; name: string; variant: "classic" | "slim"; accountId: string }]; return: LibrarySkin | null }
+
+  // ── Java ──
+  "java:detect": { args: []; return: JavaDetectResult[] }
+  "java:pick-file": { args: []; return: string | null }
+
+  // ── Cloud ──
+  "cloud:login": { args: [username: string, password: string]; return: { success: boolean; token?: string; error?: string } }
+  "cloud:register": { args: [username: string, password: string, email?: string]; return: { success: boolean; error?: string } }
+  "cloud:get-user": { args: [token: string]; return: { success: boolean; user?: CloudUser; error?: string } }
+  "cloud:get-storage-info": { args: [token: string]; return: CloudStorageInfo | null }
+  "cloud:get-files": { args: [token: string, category?: string]; return: { success: boolean; files?: CloudFile[]; error?: string } }
+  "cloud:delete-file": { args: [token: string, fileId: string]; return: { success: boolean; error?: string } }
+  "cloud:download-file": { args: [token: string, fileId: string, fileName: string]; return: { success: boolean; filePath?: string; error?: string } }
+  "cloud:download-and-import": { args: [token: string, fileId: string, fileName: string, fileType: string]; return: { success: boolean; error?: string; account?: { id: string; type: string; username: string; uuid?: string } } }
+  "cloud:get-categories": { args: [token: string]; return: { success: boolean; categories?: Record<string, { count: number; size: number }>; error?: string } }
+  "cloud:upload-file": { args: [filePath: string, token: string, category: string]; return: { success: boolean; id?: string; name?: string; size?: number; error?: string } }
+  "cloud:upload-account-data": { args: [token: string, account: { id: string; type: string; username: string; uuid?: string }]; return: { success: boolean; id?: string; name?: string; size?: number; error?: string } }
+
+  // ── Cloud (third-party providers) ──
+  "cloud:list-providers": { args: []; return: Array<{ id: string; name: string }> }
+  "cloud:connect": { args: [providerId: string, authData?: Record<string, string>]; return: { success: boolean; provider?: string; error?: string } }
+  "cloud:is-connected": { args: [providerId: string]; return: boolean }
+  "cloud:disconnect": { args: [providerId: string]; return: { success: boolean; error?: string } }
+  "cloud:list-files": { args: [providerId: string, folderPath?: string]; return: { success: boolean; files?: CloudFile[]; error?: string } }
+  "cloud:upload-file-provider": { args: [providerId: string, localPath: string, remotePath: string]; return: { success: boolean; id?: string; name?: string; error?: string } }
+  "cloud:download-file-provider": { args: [providerId: string, remotePath: string, localPath: string]; return: { success: boolean; localPath?: string; error?: string } }
+  "cloud:delete-file-provider": { args: [providerId: string, remotePath: string]; return: { success: boolean; error?: string } }
+  "cloud:get-quota": { args: [providerId: string]; return: { used: number; total: number } | null }
+  "cloud:upload-build": { args: [providerId: string, buildName: string, uploadId?: string]; return: { success: boolean; id?: string; name?: string; error?: string } }
+  "cloud:upload-account": { args: [providerId: string, account: { id: string; type: string; username: string; uuid?: string }]; return: { success: boolean; id?: string; name?: string; error?: string } }
+  "cloud:download-and-import-provider": { args: [providerId: string, remotePath: string, fileType: string]; return: { success: boolean; error?: string; account?: { id: string; type: string; username: string; uuid?: string } } }
+
+  // ── P2P Multiplayer ──
+  "p2p:register": { args: [login: string, password: string]; return: P2PAuthResult }
+  "p2p:login": { args: [login: string, password: string]; return: P2PAuthResult }
+  "p2p:get-me": { args: []; return: { success: boolean; login?: string; userId?: string; error?: string } }
+  "p2p:logout": { args: []; return: { success: boolean } }
+  "p2p:list-rooms": { args: []; return: { success: boolean; rooms?: P2PRoom[]; error?: string } }
+  "p2p:create-room": { args: [name: string, password?: string]; return: P2PRoomOpResult }
+  "p2p:join-room": { args: [name: string, password?: string]; return: P2PRoomOpResult }
+  "p2p:list-members": { args: [groupId: string]; return: { success: boolean; members?: P2PRoomMember[]; error?: string } }
+  "p2p:delete-room": { args: [groupId: string]; return: { success: boolean; error?: string } }
+  "p2p:transfer-host": { args: [groupId: string, targetUserId: string]; return: { success: boolean; error?: string } }
+  "p2p:kick-member": { args: [groupId: string, userId: string]; return: { success: boolean; error?: string } }
+  "p2p:start": { args: [role: P2PRole, groupId: string, groupName: string, playerName: string]; return: { success: boolean; error?: string } }
+  "p2p:stop": { args: []; return: { success: boolean } }
+  "p2p:send-chat": { args: [message: string]; return: { success: boolean; error?: string } }
+  "p2p:get-state": { args: []; return: { state: P2PConnState; role?: P2PRole; groupName?: string; playerName?: string; groupId?: string } }
+}
+
+// ── IPC Event Channel Map ───────────────────────────────────
+// Maps channel name → payload type (for subscribe/on listeners)
+
+export interface IpcEventMap {
+  "minecraft:progress": MinecraftProgress
+  "minecraft:java-progress": JavaProgress
+  "minecraft:debug": string
+  "minecraft:data": string
+  "minecraft:download-progress": MinecraftProgress
+  "minecraft:close": number
+  "auth:progress": string
+  "import:progress": ImportProgress
+  "cloud:upload-progress": { id: string; percent: number; stage: "zip" | "upload" }
+  "p2p:log": P2PLogEntry
+  "p2p:state": P2PConnState
+  "p2p:members": P2PRoomMember[]
+  "p2p:lan": P2PLanServer
+  "p2p:lan_remove": { port: number }
+  "p2p:chat": P2PChatMessage
+}
+
+// ── Explicit ElectronAPI ────────────────────────────────────
+// The IpcInvokeMap above serves as the canonical channel registry.
+// The ElectronAPIExplicit below is derived from it and used by preload.ts and electron.d.ts.
+
+export interface ElectronAPIExplicit {
+  minimize: () => void
+  maximize: () => void
+  close: () => void
+  isMaximized: () => Promise<boolean>
+  loginElyBy: () => Promise<AuthPayload>
+  loginXnSkins: () => Promise<AuthPayload>
+  loginMicrosoft: () => Promise<AuthPayload>
+  startXnSkinsDeviceCode: () => Promise<{
+    deviceCode: string
+    userCode: string
+    verificationUri: string
+    verificationUriComplete: string
+    expiresIn: number
+    interval: number
+  }>
+  pollXnSkinsDeviceCode: (deviceCode: string) => Promise<{ status: "pending"; slowDown?: boolean } | { status: "expired" } | { status: "complete"; account: AuthPayload } | { status: "error"; message: string; retryable?: boolean }>
+  startElyByDeviceCode: () => Promise<{
+    deviceCode: string
+    userCode: string
+    verificationUri: string
+    verificationUriComplete: string
+    expiresIn: number
+    interval: number
+  }>
+  pollElyByDeviceCode: (deviceCode: string) => Promise<{ status: "pending"; slowDown?: boolean } | { status: "expired" } | { status: "complete"; account: AuthPayload } | { status: "error"; message: string; retryable?: boolean }>
+  startMicrosoftDeviceCode: () => Promise<{
+    deviceCode: string
+    userCode: string
+    verificationUri: string
+    verificationUriComplete: string
+    expiresIn: number
+    interval: number
+  }>
+  pollMicrosoftDeviceCode: (deviceCode: string) => Promise<{ status: "pending"; slowDown?: boolean } | { status: "expired" } | { status: "complete"; account: AuthPayload } | { status: "error"; message: string; retryable?: boolean }>
+  fetchMinecraftNews: () => Promise<MinecraftNewsEntry[]>
+  loadAccounts: () => Promise<DbAccount[]>
+  saveAccount: (account: DbAccount) => Promise<void>
+  removeAccount: (id: string) => Promise<void>
+  loadBuilds: () => Promise<DbBuild[]>
+  saveBuilds: (builds: DbBuild[]) => Promise<void>
+  dbIsFallbackStorage: () => Promise<{ isFallback: boolean }>
+  reorderAccounts: (ids: string[]) => Promise<void>
+  scanBuildIntentContent: (buildName: string) => Promise<BuildIntentScanResult>
+  discoverImportableInstances: () => Promise<ImportableLauncherInstance[]>
+  discoverFromPath: (source: string, customPath: string) => Promise<ImportableLauncherInstance[]>
+  importGdLauncherInstances: (ids: string[]) => Promise<{ success: boolean; imported: number; error?: string }>
+  importLauncherInstances: (ids: string[]) => Promise<{ success: boolean; imported: number; error?: string }>
+  modsModrinthSearch: (query: string, contentType?: ModContentType, gameVersion?: string, modLoader?: ModLoaderFilter, sortBy?: ModSort, page?: number, categories?: string[]) => Promise<ModSearchResponse>
+  modsModrinthDetails: (slug: string) => Promise<ModDetails | null>
+  modsModrinthVersions: (slug: string) => Promise<ModVersion[]>
+  modsCurseforgeSearch: (query: string, contentType?: ModContentType, gameVersion?: string, modLoader?: string, sortBy?: ModSort, page?: number, categories?: string[]) => Promise<ModSearchResponse>
+  modsCurseforgeDetails: (modId: number) => Promise<ModDetails | null>
+  modsCurseforgeDownloadUrl: (fileId: number, modId: number) => Promise<string | null>
+  modsCurseforgeFeatured: (gameVersion?: string) => Promise<{ popular: ModSearchResult[]; trending: ModSearchResult[] }>
+  modsResolveDependencies: (version: ModVersion, source: "modrinth" | "curseforge") => Promise<ModDependency[]>
+  modsFtbSearch: (query: string, page?: number) => Promise<ModSearchResponse>
+  modsFtbDetails: (id: number) => Promise<ModDetails | null>
+  modsFtbVersion: (id: number, versionId: number) => Promise<FTBVersionManifest | null>
+  modsFtbChangelog: (id: number, versionId: number) => Promise<string>
+  modsModrinthCategories: () => Promise<any[]>
+  modsCurseforgeCategories: () => Promise<any[]>
+  modsModrinthLoaders: () => Promise<string[]>
+  modsModrinthGameVersions: () => Promise<string[]>
+  getMinecraftVersions: () => Promise<MinecraftVersionInfo[]>
+  getLatestRelease: () => Promise<string | null>
+  getLatestSnapshot: () => Promise<string | null>
+  getFabricGameVersions: () => Promise<{ version: string; stable: boolean }[]>
+  getFabricVersions: (mcVersion: string) => Promise<{ version: string; stable: boolean }[]>
+  getFabricSupported: () => Promise<string[]>
+  getLiteLoaderVersions: (mcVersion: string) => Promise<{ version: string; stable: boolean }[]>
+  getLiteLoaderRecommended: (mcVersion: string) => Promise<string | null>
+  getLiteLoaderSupported: () => Promise<string[]>
+  getQuiltGameVersions: () => Promise<{ version: string; stable: boolean }[]>
+  getQuiltVersions: (mcVersion: string) => Promise<{ version: string; stable: boolean }[]>
+  getQuiltSupported: () => Promise<string[]>
+  getOptifineVersions: (mcVersion: string) => Promise<{ filename: string; isPreview: boolean }[]>
+  getOptifineRecommended: (mcVersion: string) => Promise<string | null>
+  getOptifineSupported: () => Promise<string[]>
+  getNeoForgeVersions: (mcVersion: string) => Promise<{ version: string; stable: boolean }[]>
+  getNeoForgeRecommended: (mcVersion: string) => Promise<string | null>
+  getNeoForgeSupported: () => Promise<string[]>
+  getForgeVersions: (mcVersion: string) => Promise<{ version: string; stable: boolean }[]>
+  getForgeRecommended: (mcVersion: string) => Promise<string | null>
+  getForgeSupported: () => Promise<string[]>
+  getCustomVersions: () => Promise<string[]>
+  setOfflineAuth: (username: string) => Promise<AuthSession | null>
+  getGameDir: () => Promise<string>
+  getAuth: () => Promise<AuthSession | null>
+  launchMinecraft: (params: MinecraftLaunchParams) => Promise<{ success: boolean; error?: string }>
+  stopMinecraft: () => Promise<void>
+  isMinecraftRunning: () => Promise<boolean>
+  onMinecraftProgress: (callback: (progress: MinecraftProgress) => void) => CleanupFn
+  onMinecraftJavaProgress: (callback: (progress: JavaProgress) => void) => CleanupFn
+  onMinecraftDebug: (callback: (message: string) => void) => CleanupFn
+  onMinecraftData: (callback: (message: string) => void) => CleanupFn
+  onMinecraftDownloadStatus: (callback: (progress: MinecraftProgress) => void) => CleanupFn
+  onMinecraftClose: (callback: (code: number) => void) => CleanupFn
+  onAuthProgress: (callback: (msg: string) => void) => CleanupFn
+  onCliLaunchBuild: (callback: (buildName: string) => void) => CleanupFn
+  getSetting: (key: string) => Promise<string | undefined>
+  setSetting: (key: string, value: string) => Promise<void>
+  listBundledMods: () => Promise<Array<{ fileName: string; displayName: string; required: boolean }>>
+  installBundledMods: (selected: string[]) => Promise<{ success: boolean; installed: number; error?: string }>
+  getBuildIntentPath: (buildId: string) => Promise<string>
+  getInstancesRoot: () => Promise<string>
+  pickFolder: (title?: string) => Promise<string | null>
+  setInstancesRoot: (newRoot: string) => Promise<{ success: boolean; root?: string; error?: string }>
+  saveModToIntent: (buildId: string, url: string, fileName: string) => Promise<string | null>
+  saveLocalModToIntent: (buildId: string, localFilePath: string) => Promise<string | null>
+  saveContentToIntent: (buildId: string, contentType: "mod" | "resourcepack" | "shader", url: string, fileName: string) => Promise<string | null>
+  saveLocalContentToIntent: (buildId: string, contentType: "mod" | "resourcepack" | "shader", localFilePath: string) => Promise<string | null>
+  deleteContentFromIntent: (buildId: string, contentType: "mod" | "resourcepack" | "shader", fileName: string) => Promise<{ success: boolean; error?: string }>
+  setBuildIntentPath: (buildId: string, intentPath: string) => Promise<void>
+  deleteBuildIntent: (buildName: string) => Promise<{ success: boolean; error?: string }>
+  installContentFile: (contentType: "mod" | "resourcepack" | "shader", url: string, fileName: string) => Promise<{ success: boolean; filePath?: string; error?: string }>
+  importModrinthModpack: (buildName: string, projectSlug: string, versionId?: string) => Promise<ModpackImportResult>
+  importCurseforgeModpack: (buildName: string, modId: number, fileId: number) => Promise<ModpackImportResult>
+  importFtbModpack: (buildName: string, modpackId: number, versionId: number) => Promise<ModpackImportResult>
+  openAndImportModpack: () => Promise<ModpackImportResult & { name?: string; description?: string; icon?: string; source?: "modrinth" | "curseforge"; intentPath?: string }>
+  cancelImportModpack: () => Promise<{ success: boolean }>
+  onImportProgress: (callback: (progress: ImportProgress) => void) => CleanupFn
+  onContentDownloadProgress: (callback: (progress: { fileName: string; current: number; total: number }) => void) => CleanupFn
+  openExternal: (url: string) => Promise<void>
+  openLauncherFolder: () => Promise<void>
+  openPath: (dirPath: string) => Promise<void>
+  shareToMclogs: (content: string) => Promise<{ success: boolean; url?: string; error?: string }>
+  detectJavaInstallations: () => Promise<JavaDetectResult[]>
+  pickJavaFile: () => Promise<string | null>
+  listWorlds: (buildName: string) => Promise<WorldInfo[]>
+  renameWorld: (buildName: string, folder: string, newName: string) => Promise<{ success: boolean; error?: string }>
+  deleteWorld: (buildName: string, folder: string) => Promise<{ success: boolean; error?: string }>
+  setWorldIcon: (buildName: string, folder: string, dataUrl: string) => Promise<{ success: boolean; error?: string }>
+  listWorldDatapacks: (buildName: string, folder: string) => Promise<DatapackInfo[]>
+  installDatapackRemote: (buildName: string, folder: string, url: string, fileName: string) => Promise<{ success: boolean; path?: string; error?: string }>
+  installDatapackLocal: (buildName: string, folder: string, localFilePath: string) => Promise<{ success: boolean; path?: string; error?: string }>
+  deleteWorldDatapack: (buildName: string, folder: string, fileName: string) => Promise<{ success: boolean; error?: string }>
+  listScreenshots: (buildName: string) => Promise<ScreenshotInfo[]>
+  getScreenshot: (buildName: string, fileName: string) => Promise<string | null>
+  deleteScreenshot: (buildName: string, fileName: string) => Promise<{ success: boolean; error?: string }>
+  renameScreenshot: (buildName: string, fileName: string, newName: string) => Promise<{ success: boolean; error?: string }>
+  listServers: (buildName: string) => Promise<Array<{ name: string; ip: string }>>
+  writeServersDat: (buildName: string, servers: Array<{ name: string; ip: string }>) => Promise<{ success: boolean; error?: string }>
+  uploadBuildToCloud: (buildName: string, cloudToken: string, category?: string) => Promise<{ success: boolean; error?: string }>
+  copyBuild: (buildName: string, newName: string) => Promise<{ success: boolean; intentPath?: string; error?: string }>
+  exportBuildZip: (buildName: string, label: string, categories?: BuildExportCategory[]) => Promise<{ success: boolean; path?: string; error?: string }>
+  exportBuildModlist: (buildName: string, label: string, format: "html" | "markdown" | "json" | "csv" | "plaintext") => Promise<{ success: boolean; path?: string; error?: string }>
+  moveBuildIntentToTrash: (dirName: string) => Promise<{ success: boolean; trashName?: string; error?: string }>
+  restoreBuildIntentFromTrash: (dirName: string, trashName: string) => Promise<{ success: boolean; error?: string }>
+  purgeBuildTrash: () => Promise<{ success: boolean; error?: string }>
+  listTrashBuilds: () => Promise<Array<{ trashName: string; originalName: string; trashedAt: number }>>
+  deleteTrashItem: (trashName: string) => Promise<{ success: boolean; error?: string }>
+  cloudLogin: (username: string, password: string) => Promise<{ success: boolean; token?: string; error?: string }>
+  cloudRegister: (username: string, password: string, email?: string) => Promise<{ success: boolean; error?: string }>
+  cloudGetUser: (token: string) => Promise<{ success: boolean; user?: CloudUser; error?: string }>
+  cloudGetStorageInfo: (token: string) => Promise<CloudStorageInfo | null>
+  cloudGetFiles: (token: string, category?: string) => Promise<{ success: boolean; files?: CloudFile[]; error?: string }>
+  cloudDeleteFile: (token: string, fileId: string) => Promise<{ success: boolean; error?: string }>
+  cloudDownloadFile: (token: string, fileId: string, fileName: string) => Promise<{ success: boolean; filePath?: string; error?: string }>
+  cloudDownloadAndImport: (token: string, fileId: string, fileName: string, fileType: string) => Promise<{ success: boolean; error?: string; account?: { id: string; type: string; username: string; uuid?: string } }>
+  cloudGetCategories: (token: string) => Promise<{ success: boolean; categories?: Record<string, { count: number; size: number }>; error?: string }>
+  cloudUploadFile: (filePath: string, token: string, category: string) => Promise<{ success: boolean; id?: string; name?: string; size?: number; error?: string }>
+  uploadAccountToCloud: (token: string, account: { id: string; type: string; username: string; uuid?: string }) => Promise<{ success: boolean; id?: string; name?: string; size?: number; error?: string }>
+  p2pRegister: (login: string, password: string) => Promise<P2PAuthResult>
+  p2pLogin: (login: string, password: string) => Promise<P2PAuthResult>
+  p2pGetMe: () => Promise<{ success: boolean; login?: string; userId?: string; error?: string }>
+  p2pLogout: () => Promise<{ success: boolean }>
+  p2pListRooms: () => Promise<{ success: boolean; rooms?: P2PRoom[]; error?: string }>
+  p2pCreateRoom: (name: string, password?: string) => Promise<P2PRoomOpResult>
+  p2pJoinRoom: (name: string, password?: string) => Promise<P2PRoomOpResult>
+  p2pListMembers: (groupId: string) => Promise<{ success: boolean; members?: P2PRoomMember[]; error?: string }>
+  p2pDeleteRoom: (groupId: string) => Promise<{ success: boolean; error?: string }>
+  p2pTransferHost: (groupId: string, targetUserId: string) => Promise<{ success: boolean; error?: string }>
+  p2pKickMember: (groupId: string, userId: string) => Promise<{ success: boolean; error?: string }>
+  p2pLeaveRoom: (groupId: string) => Promise<{ success: boolean; error?: string }>
+  p2pStart: (role: P2PRole, groupId: string, groupName: string, playerName: string) => Promise<{ success: boolean; error?: string }>
+  p2pStop: () => Promise<{ success: boolean }>
+  p2pSendChat: (message: string) => Promise<{ success: boolean; error?: string }>
+  p2pGetState: () => Promise<{ state: P2PConnState; role?: P2PRole; groupName?: string; playerName?: string; groupId?: string }>
+  skinsGetProfile: (accountId?: string) => Promise<McProfile | null>
+  skinsUploadSkin: (filePath: string, variant: "classic" | "slim", accountId?: string) => Promise<boolean>
+  skinsDeleteSkin: (accountId?: string) => Promise<boolean>
+  skinsSetCape: (capeId: string | null, accountId?: string) => Promise<boolean>
+  onP2PLog: (callback: (entry: P2PLogEntry) => void) => CleanupFn
+  onP2PState: (callback: (state: P2PConnState) => void) => CleanupFn
+  onP2PMembers: (callback: (members: P2PRoomMember[]) => void) => CleanupFn
+  onP2PLan: (callback: (server: P2PLanServer) => void) => CleanupFn
+  onP2PChat: (callback: (message: P2PChatMessage) => void) => CleanupFn
+}

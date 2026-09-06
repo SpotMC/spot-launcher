@@ -1,0 +1,194 @@
+{
+  "name": "spot-launcher",
+  "version": "2.2.1",
+  "description": "Spot Launcher desktop application",
+  "author": {
+    "name": "SpotMC",
+    "email": "support@boberchat.ru"
+  },
+  "homepage": "https://spotmc.ru",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SpotMC/spot-launcher.git"
+  },
+  "private": true,
+  "main": "dist-electron/main/index.js",
+  "dependencies": {
+    "@emoji-mart/data": "^1.2.1",
+    "@emoji-mart/react": "^1.1.1",
+    "@fontsource/inter": "^5.3.0",
+    "@fontsource/plus-jakarta-sans": "^5.3.0",
+    "@fontsource/unbounded": "^5.3.0",
+    "@xnlc/core": "^1.0.5",
+    "@xnlc/mods": "^1.0.2",
+    "@xnlc/nbt": "^1.0.0",
+    "@xnlc/p2p": "^1.0.2",
+    "@xnlc/types": "^1.0.7",
+    "adm-zip": "^0.6.0",
+    "axios": "^1.18.1",
+    "discord-rpc": "^4.0.1",
+    "electron-updater": "^6.8.9",
+    "emoji-mart": "^5.6.0",
+    "form-data": "^4.0.6",
+    "i18next": "^26.3.6",
+    "iconv-lite": "^0.7.3",
+    "node-datachannel": "^0.26.0",
+    "skinview3d": "^3.4.2",
+    "sql.js": "^1.14.1",
+    "three": "^0.185.1",
+    "toml": "^5.0.0",
+    "webdav": "^5.10.0"
+  },
+  "scripts": {
+    "sync:xnlc": "node scripts/sync-local-xnlc.mjs",
+    "predev": "node scripts/gen-credentials.mjs",
+    "prebuild": "node scripts/gen-credentials.mjs",
+    "prepackage": "node scripts/gen-credentials.mjs",
+    "dev": "concurrently -k -s first \"vite --host 127.0.0.1\" \"tsc -p tsconfig.node.json && wait-on http://127.0.0.1:5173 --timeout 15000 && cross-env NODE_ENV=development node scripts/launch-electron-dev.mjs\"",
+    "dev:fast": "concurrently -k -s first \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 --timeout 15000 && cross-env NODE_ENV=development node scripts/launch-electron-dev.mjs\"",
+    "dev:diag": "concurrently -k -s first \"vite --host 127.0.0.1\" \"tsc -p tsconfig.node.json && wait-on http://127.0.0.1:5173 --timeout 15000 && cross-env NODE_ENV=development ELECTRON_DEBUG_FLAGS=1 node scripts/launch-electron-dev.mjs\"",
+    "dev:diag:no-shm": "concurrently -k -s first \"vite --host 127.0.0.1\" \"tsc -p tsconfig.node.json && wait-on http://127.0.0.1:5173 --timeout 15000 && cross-env NODE_ENV=development ELECTRON_DEBUG_FLAGS=1 ELECTRON_DISABLE_DEV_SHM_USAGE=0 node scripts/launch-electron-dev.mjs\"",
+    "dev:diag:no-sandbox": "concurrently -k -s first \"vite --host 127.0.0.1\" \"tsc -p tsconfig.node.json && wait-on http://127.0.0.1:5173 --timeout 15000 && cross-env NODE_ENV=development ELECTRON_DEBUG_FLAGS=1 ELECTRON_NO_SANDBOX=0 node scripts/launch-electron-dev.mjs\"",
+    "build:renderer": "vite build",
+    "build:electron": "tsc -p tsconfig.node.json",
+    "build": "pnpm run typecheck && vite build && pnpm run build:electron",
+    "package": "pnpm run build && electron-builder",
+    "typecheck": "tsc --noEmit",
+    "test:xn-auth": "node scripts/test-xn-auth.mjs"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^4.2.0",
+    "@radix-ui/react-checkbox": "1.3.8",
+    "@radix-ui/react-dialog": "1.1.20",
+    "@radix-ui/react-select": "2.3.4",
+    "@tabler/icons-react": "^3.45.0",
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^26",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "@types/three": "^0.185.4",
+    "@vitejs/plugin-react": "^6.0.3",
+    "autoprefixer": "^10.5.4",
+    "clsx": "^2.1.1",
+    "concurrently": "^10.0.3",
+    "cross-env": "^10.1.0",
+    "depcheck": "^1.4.7",
+    "dotenv": "^17.4.2",
+    "electron": "^43.1.1",
+    "electron-builder": "^26.15.3",
+    "postcss": "^8.5",
+    "rcedit": "^5.0.2",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "react-i18next": "^17.0.10",
+    "react-markdown": "^10.1.0",
+    "rehype-raw": "^7.0.0",
+    "rehype-sanitize": "^6.0.0",
+    "ssh2": "^1.17.0",
+    "tailwind-merge": "^3.6.0",
+    "tailwindcss": "^4.3.3",
+    "tw-animate-css": "1.4.0",
+    "typescript": "7.0.2",
+    "vite": "^8.1.5",
+    "wait-on": "^9.0.10"
+  },
+  "build": {
+    "appId": "org.spotlauncher.app",
+    "productName": "Spot Launcher",
+    "npmRebuild": false,
+    "forceCodeSigning": false,
+    "publish": {
+      "provider": "generic",
+      "url": "https://admin.nexus-manage.ru/updates"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": true,
+      "artifactName": "Spot-Launcher-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": true,
+      "allowToChangeInstallationDirectory": false,
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico"
+    },
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "!**/xnlc/src/**",
+      "!**/xnlc-nbt/src/**",
+      "!**/xnlc/test*",
+      "!**/xnlc-nbt/test*",
+      "!**/xnlc/installer.log",
+      "!**/xnlc-nbt/installer.log",
+      "!**/xnlc/tsconfig.json",
+      "!**/xnlc-nbt/tsconfig.json"
+    ],
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb",
+        "rpm",
+        "tar.xz",
+        "pacman"
+      ],
+      "category": "Game",
+      "maintainer": "SpotMC <support@boberchat.ru>",
+      "artifactName": "${name}-${version}-${arch}.${ext}"
+    },
+    "deb": {
+      "depends": [
+        "libnotify4",
+        "libsecret-1-0",
+        "libappindicator3-1",
+        "libxss1"
+      ]
+    },
+    "rpm": {
+      "depends": [
+        "libnotify",
+        "libsecret",
+        "libappindicator-gtk3",
+        "libXScrnSaver"
+      ]
+    },
+    "appImage": {
+      "artifactName": "${name}-${version}-x86_64.${ext}"
+    },
+    "pacman": {
+      "artifactName": "${name}-${version}-x86_64.${ext}"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "icon": "build/icon.png",
+      "category": "public.app-category.games",
+      "artifactName": "${name}-${version}-mac-${arch}.${ext}",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false
+    },
+    "dmg": {
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    }
+  }
+}

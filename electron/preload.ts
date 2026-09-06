@@ -1,0 +1,384 @@
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
+import type {
+  AuthPayload,
+  AuthSession,
+  MinecraftVersionInfo,
+  MinecraftProgress,
+  MinecraftNewsEntry,
+  DbAccount,
+  DbBuild,
+  DbBuildMod,
+  MinecraftLaunchParams,
+  JavaProgress,
+  ImportableLauncherInstance,
+
+  JavaDetectResult,
+  BuildIntentScanResult,
+  ModpackImportResult,
+  ImportProgress,
+  ModContentType,
+  ModSort,
+  ModLoaderFilter,
+  ModSearchResponse,
+  ModDetails,
+  ModVersion,
+  ModDependency,
+  ModSearchResult,
+  FTBVersionManifest,
+  CleanupFn,
+  P2PRole,
+  P2PRoom,
+  P2PRoomMember,
+  P2PLogEntry,
+  P2PConnState,
+  P2PLanServer,
+  P2PAuthResult,
+  P2PRoomOpResult,
+  P2PChatMessage,
+  QuickPlayEntry,
+  BuildExportCategory,
+  McProfile,
+  LibrarySkin,
+} from '@xnlc/types' with { 'resolution-mode': 'import' }
+
+// World/screenshot types are defined locally (not imported from @xnlc/types)
+// so the preload compiles against any published version of the package.
+// Keep in sync with electron/main/worlds.ts and @xnlc/types domain-types.
+type WorldInfo = {
+  folder: string
+  name: string
+  seed: string
+  gameMode: string
+  hardcore: boolean
+  lastPlayed: number
+  playedTime: number
+  mcVersion: string
+  iconDataUrl: string
+  sizeBytes: number
+  lastModified: number
+  path: string
+  datapackCount: number
+  hasLevelData: boolean
+}
+
+type DatapackInfo = {
+  name: string
+  sizeBytes: number
+  lastModified: number
+  path: string
+}
+
+type ScreenshotInfo = {
+  name: string
+  sizeBytes: number
+  lastModified: number
+  thumbDataUrl: string
+  path: string
+}
+
+// Server status type is defined locally (not imported from @xnlc/types)
+// so the preload compiles against any published version of the package.
+// Keep in sync with electron/main/server-status.ts.
+type ServerStatusResult = {
+  online: boolean
+  ip: string
+  port: number
+  players_online: number
+  players_max: number
+  motd_raw?: string
+  motd_clean?: string
+  version: string
+  latency_ms: number
+  icon?: string
+  error?: string
+}
+
+function subscribe<T>(channel: string, callback: (payload: T) => void): CleanupFn {
+  const handler = (_: Electron.IpcRendererEvent, payload: T) => callback(payload)
+  ipcRenderer.on(channel, handler)
+  return () => ipcRenderer.removeListener(channel, handler)
+}
+
+function subscribeVoid(channel: string, callback: (payload: number) => void): CleanupFn {
+  const handler = (_: Electron.IpcRendererEvent, payload: number) => callback(payload)
+  ipcRenderer.on(channel, handler)
+  return () => ipcRenderer.removeListener(channel, handler)
+}
+
+function invoke<T>(channel: string) {
+  return (...args: unknown[]) => ipcRenderer.invoke(channel, ...args) as Promise<T>
+}
+
+contextBridge.exposeInMainWorld('electronAPI', {
+  // ── Window ─────────────────────────────────────────────
+  minimize: () => ipcRenderer.send('window:minimize'),
+  maximize: () => ipcRenderer.send('window:maximize'),
+  close: () => ipcRenderer.send('window:close'),
+  isMaximized: invoke<boolean>('window:is-maximized'),
+
+  // ── Legal documents window ─────────────────────────────
+  openLegalWindow: invoke<void>('legal:open'),
+  closeLegalWindow: () => ipcRenderer.send('legal:close'),
+
+  // ── Auth ───────────────────────────────────────────────
+  loginElyBy: invoke<AuthPayload>('auth:elyby-login'),
+  startElyByDeviceCode: invoke<{
+    deviceCode: string
+    userCode: string
+    verificationUri: string
+    verificationUriComplete: string
+    expiresIn: number
+    interval: number
+  }>('auth:elyby-device-start'),
+  pollElyByDeviceCode: (deviceCode: string) => ipcRenderer.invoke('auth:elyby-device-poll', deviceCode) as Promise<{ status: "pending"; slowDown?: boolean } | { status: "expired" } | { status: "complete"; account: AuthPayload } | { status: "error"; message: string; retryable?: boolean }>,
+  loginXnSkins: invoke<AuthPayload>('auth:xnskins-login'),
+  startXnSkinsDeviceCode: invoke<{
+    deviceCode: string
+    userCode: string
+    verificationUri: string
+    verificationUriComplete: string
+    expiresIn: number
+    interval: number
+  }>('auth:xnskins-device-start'),
+  pollXnSkinsDeviceCode: (deviceCode: string) => ipcRenderer.invoke('auth:xnskins-device-poll', deviceCode) as Promise<{ status: "pending"; slowDown?: boolean } | { status: "expired" } | { status: "complete"; account: AuthPayload } | { status: "error"; message: string; retryable?: boolean }>,
+  loginMicrosoft: invoke<AuthPayload>('auth:microsoft-login'),
+  startMicrosoftDeviceCode: invoke<{
+    deviceCode: string
+    userCode: string
+    verificationUri: string
+    verificationUriComplete: string
+    expiresIn: number
+    interval: number
+  }>('auth:microsoft-device-start'),
+  pollMicrosoftDeviceCode: (deviceCode: string) => ipcRenderer.invoke('auth:microsoft-device-poll', deviceCode) as Promise<{ status: "pending"; slowDown?: boolean } | { status: "expired" } | { status: "complete"; account: AuthPayload } | { status: "error"; message: string; retryable?: boolean }>,
+  onAuthProgress: (callback: (msg: string) => void) => {
+    const handler = (_: Electron.IpcRendererEvent, msg: string) => callback(msg)
+    ipcRenderer.on('auth:progress', handler)
+    return () => ipcRenderer.removeListener('auth:progress', handler)
+  },
+
+  // ── News ───────────────────────────────────────────────
+  fetchMinecraftNews: invoke<MinecraftNewsEntry[]>('fetch:minecraft-news'),
+
+  // ── Database ───────────────────────────────────────────
+  loadAccounts: invoke<DbAccount[]>('db:load-accounts'),
+  saveAccount: (account: DbAccount) => ipcRenderer.invoke('db:save-account', account) as Promise<void>,
+  removeAccount: (id: string) => ipcRenderer.invoke('db:remove-account', id) as Promise<void>,
+  loadBuilds: invoke<DbBuild[]>('db:load-builds'),
+  saveBuilds: (builds: DbBuild[]) => ipcRenderer.invoke('db:save-builds', builds) as Promise<void>,
+  dbIsFallbackStorage: invoke<{ isFallback: boolean }>('db:is-fallback-storage'),
+  reorderAccounts: (ids: string[]) => ipcRenderer.invoke('db:reorder-accounts', ids) as Promise<void>,
+
+  // ── Build / Intent ─────────────────────────────────────
+  scanBuildIntentContent: (buildName: string) => ipcRenderer.invoke('build:scan-intent-content', buildName) as Promise<BuildIntentScanResult>,
+  discoverImportableInstances: invoke<ImportableLauncherInstance[]>('launcher:discover-importable-instances'),
+  importGdLauncherInstances: (ids: string[]) => ipcRenderer.invoke('launcher:import-gdlauncher-instances', ids) as Promise<{ success: boolean; imported: number; error?: string }>,
+  importLauncherInstances: (ids: string[]) => ipcRenderer.invoke('launcher:import-instances', ids) as Promise<{ success: boolean; imported: number; error?: string }>,
+  copyBuild: (buildName: string, newName: string) => ipcRenderer.invoke('build:copy', buildName, newName) as Promise<{ success: boolean; intentPath?: string; error?: string }>,
+  renameBuildIntent: (oldName: string, newName: string) => ipcRenderer.invoke('build:rename-intent', oldName, newName) as Promise<{ success: boolean; intentPath?: string; error?: string }>,
+  exportBuildZip: (buildName: string, label: string, categories?: BuildExportCategory[]) => ipcRenderer.invoke('build:export-zip', buildName, label, categories) as Promise<{ success: boolean; path?: string; error?: string }>,
+  exportBuildModlist: (buildName: string, label: string, format: "html" | "markdown" | "json" | "csv" | "plaintext") => ipcRenderer.invoke('build:export-modlist', buildName, label, format) as Promise<{ success: boolean; path?: string; error?: string }>,
+  moveBuildIntentToTrash: (dirName: string) => ipcRenderer.invoke('build:move-intent-to-trash', dirName) as Promise<{ success: boolean; trashName?: string; error?: string }>,
+  restoreBuildIntentFromTrash: (dirName: string, trashName: string) => ipcRenderer.invoke('build:restore-intent-from-trash', dirName, trashName) as Promise<{ success: boolean; error?: string }>,
+  purgeBuildTrash: () => ipcRenderer.invoke('build:purge-trash') as Promise<{ success: boolean; error?: string }>,
+  listTrashBuilds: () => ipcRenderer.invoke('build:list-trash') as Promise<Array<{ trashName: string; originalName: string; trashedAt: number }>>,
+  deleteTrashItem: (trashName: string) => ipcRenderer.invoke('build:delete-trash-item', trashName) as Promise<{ success: boolean; error?: string }>,
+  onCliLaunchBuild: (callback: (buildName: string) => void) => subscribe('cli:launch-build', callback),
+
+  // ── Unified Mods API (via xnlc/mods) ──────────────────
+  modsModrinthSearch: (query: string, contentType?: ModContentType, gameVersion?: string, modLoader?: ModLoaderFilter, sortBy?: ModSort, page?: number, categories?: string[]) =>
+    ipcRenderer.invoke('mods:modrinth-search', query, contentType, gameVersion, modLoader, sortBy, page, categories) as Promise<ModSearchResponse>,
+  modsModrinthDetails: (slug: string) => ipcRenderer.invoke('mods:modrinth-details', slug) as Promise<ModDetails | null>,
+  modsModrinthVersions: (slug: string) => ipcRenderer.invoke('mods:modrinth-versions', slug) as Promise<ModVersion[]>,
+  modsCurseforgeSearch: (query: string, contentType?: ModContentType, gameVersion?: string, modLoader?: string, sortBy?: ModSort, page?: number, categories?: string[]) =>
+    ipcRenderer.invoke('mods:curseforge-search', query, contentType, gameVersion, modLoader, sortBy, page, categories) as Promise<ModSearchResponse>,
+  modsCurseforgeDetails: (modId: number) => ipcRenderer.invoke('mods:curseforge-details', modId) as Promise<ModDetails | null>,
+  modsCurseforgeDownloadUrl: (fileId: number, modId: number) => ipcRenderer.invoke('mods:curseforge-download-url', fileId, modId) as Promise<string | null>,
+  modsCurseforgeFeatured: (gameVersion?: string) => ipcRenderer.invoke('mods:curseforge-featured', gameVersion) as Promise<{ popular: ModSearchResult[]; trending: ModSearchResult[] }>,
+  modsResolveDependencies: (version: ModVersion, source: "modrinth" | "curseforge") => ipcRenderer.invoke('mods:resolve-dependencies', version, source) as Promise<ModDependency[]>,
+  modsFtbSearch: (query: string, page?: number) => ipcRenderer.invoke('mods:ftb-search', query, page) as Promise<ModSearchResponse>,
+  modsFtbDetails: (id: number) => ipcRenderer.invoke('mods:ftb-details', id) as Promise<ModDetails | null>,
+  modsFtbVersion: (id: number, versionId: number) => ipcRenderer.invoke('mods:ftb-version', id, versionId) as Promise<FTBVersionManifest | null>,
+  modsFtbChangelog: (id: number, versionId: number) => ipcRenderer.invoke('mods:ftb-changelog', id, versionId) as Promise<string>,
+  modsModrinthCategories: () => ipcRenderer.invoke('mods:modrinth-categories') as Promise<any[]>,
+  modsCurseforgeCategories: () => ipcRenderer.invoke('mods:curseforge-categories') as Promise<any[]>,
+  modsModrinthLoaders: () => ipcRenderer.invoke('mods:modrinth-loaders') as Promise<string[]>,
+  modsModrinthGameVersions: () => ipcRenderer.invoke('mods:modrinth-game-versions') as Promise<string[]>,
+
+  // ── Minecraft Versions ─────────────────────────────────
+  getMinecraftVersions: invoke<MinecraftVersionInfo[]>('minecraft:get-versions'),
+  getLatestRelease: invoke<string | null>('minecraft:get-latest-release'),
+  getLatestSnapshot: invoke<string | null>('minecraft:get-latest-snapshot'),
+  getFabricGameVersions: invoke<{ version: string; stable: boolean }[]>('minecraft:get-fabric-game-versions'),
+  getFabricVersions: (mcVersion: string) => ipcRenderer.invoke('minecraft:get-fabric-versions', mcVersion) as Promise<{ version: string; stable: boolean }[]>,
+  getFabricSupported: invoke<string[]>('minecraft:get-fabric-supported'),
+  getLiteLoaderVersions: (mcVersion: string) => ipcRenderer.invoke('minecraft:get-liteloader-versions', mcVersion) as Promise<{ version: string; stable: boolean }[]>,
+  getLiteLoaderRecommended: (mcVersion: string) => ipcRenderer.invoke('minecraft:get-liteloader-recommended', mcVersion) as Promise<string | null>,
+  getLiteLoaderSupported: invoke<string[]>('minecraft:get-liteloader-supported'),
+  getQuiltGameVersions: invoke<{ version: string; stable: boolean }[]>('minecraft:get-quilt-game-versions'),
+  getQuiltVersions: (mcVersion: string) => ipcRenderer.invoke('minecraft:get-quilt-versions', mcVersion) as Promise<{ version: string; stable: boolean }[]>,
+  getQuiltSupported: invoke<string[]>('minecraft:get-quilt-supported'),
+  getOptifineVersions: (mcVersion: string) => ipcRenderer.invoke('minecraft:get-optifine-versions', mcVersion) as Promise<{ filename: string; isPreview: boolean }[]>,
+  getOptifineRecommended: (mcVersion: string) => ipcRenderer.invoke('minecraft:get-optifine-recommended', mcVersion) as Promise<string | null>,
+  getOptifineSupported: invoke<string[]>('minecraft:get-optifine-supported'),
+  getNeoForgeVersions: (mcVersion: string) => ipcRenderer.invoke('minecraft:get-neoforge-versions', mcVersion) as Promise<{ version: string; stable: boolean }[]>,
+  getNeoForgeRecommended: (mcVersion: string) => ipcRenderer.invoke('minecraft:get-neoforge-recommended', mcVersion) as Promise<string | null>,
+  getNeoForgeSupported: invoke<string[]>('minecraft:get-neoforge-supported'),
+  getForgeVersions: (mcVersion: string) => ipcRenderer.invoke('minecraft:get-forge-versions', mcVersion) as Promise<{ version: string; stable: boolean }[]>,
+  getForgeRecommended: (mcVersion: string) => ipcRenderer.invoke('minecraft:get-forge-recommended', mcVersion) as Promise<string | null>,
+  getForgeSupported: invoke<string[]>('minecraft:get-forge-supported'),
+  getCustomVersions: invoke<string[]>('minecraft:get-custom-versions'),
+
+  // ── Minecraft Auth & Launch ────────────────────────────
+  setOfflineAuth: (username: string) => ipcRenderer.invoke('minecraft:set-offline-auth', username) as Promise<AuthSession | null>,
+  getGameDir: invoke<string>('minecraft:get-game-dir'),
+  getAuth: invoke<AuthSession | null>('minecraft:get-auth'),
+  launchMinecraft: (params: MinecraftLaunchParams) => ipcRenderer.invoke('minecraft:launch', params) as Promise<{ success: boolean; error?: string }>,
+  stopMinecraft: invoke<void>('minecraft:stop'),
+  isMinecraftRunning: invoke<boolean>('minecraft:is-running'),
+
+  // ── Minecraft Events ───────────────────────────────────
+  onMinecraftProgress: (callback: (progress: MinecraftProgress) => void) => subscribe('minecraft:progress', callback),
+  onMinecraftJavaProgress: (callback: (progress: JavaProgress) => void) => subscribe('minecraft:java-progress', callback),
+  onMinecraftDebug: (callback: (message: string) => void) => subscribe('minecraft:debug', callback),
+  onMinecraftData: (callback: (message: string) => void) => subscribe('minecraft:data', callback),
+  onMinecraftDownloadStatus: (callback: (progress: MinecraftProgress) => void) => subscribe('minecraft:download-progress', callback),
+  onMinecraftClose: (callback: (code: number) => void) => subscribeVoid('minecraft:close', callback),
+
+  // ── Settings ───────────────────────────────────────────
+  getSetting: (key: string) => ipcRenderer.invoke('settings:get', key) as Promise<string | undefined>,
+  setSetting: (key: string, value: string) => ipcRenderer.invoke('settings:set', key, value) as Promise<void>,
+  getTotalMemory: invoke<number>('system:get-total-memory'),
+
+  // ── Servers ────────────────────────────────────────────
+  listServers: (buildName: string) => ipcRenderer.invoke('servers:list', buildName) as Promise<Array<{ name: string; ip: string }>>,
+  writeServersDat: (buildName: string, servers: Array<{ name: string; ip: string }>) => ipcRenderer.invoke('servers:write-dat', buildName, servers) as Promise<{ success: boolean; error?: string }>,
+  pingServer: (address: string) => ipcRenderer.invoke('servers:ping', address) as Promise<ServerStatusResult>,
+
+  // ── Build Intent Operations ────────────────────────────
+  getBuildIntentPath: (buildId: string) => ipcRenderer.invoke('build:get-intent-path', buildId) as Promise<string>,
+  getInstancesRoot: () => ipcRenderer.invoke('build:get-instances-root') as Promise<string>,
+  pickFolder: (title?: string) => ipcRenderer.invoke('common:pick-folder', title) as Promise<string | null>,
+  setInstancesRoot: (newRoot: string) => ipcRenderer.invoke('build:set-instances-root', newRoot) as Promise<{ success: boolean; root?: string; error?: string }>,
+  saveModToIntent: (buildId: string, url: string, fileName: string) => ipcRenderer.invoke('build:save-mod-to-intent', buildId, url, fileName) as Promise<string | null>,
+  saveLocalModToIntent: (buildId: string, localFilePath: string) => ipcRenderer.invoke('build:save-local-mod-to-intent', buildId, localFilePath) as Promise<string | null>,
+  saveContentToIntent: (buildId: string, contentType: "mod" | "resourcepack" | "shader", url: string, fileName: string) => ipcRenderer.invoke('build:save-content-to-intent', buildId, contentType, url, fileName) as Promise<string | null>,
+  saveLocalContentToIntent: (buildId: string, contentType: "mod" | "resourcepack" | "shader", localFilePath: string) => ipcRenderer.invoke('build:save-local-content-to-intent', buildId, contentType, localFilePath) as Promise<string | null>,
+  deleteContentFromIntent: (buildId: string, contentType: "mod" | "resourcepack" | "shader", fileName: string) => ipcRenderer.invoke('build:delete-content-from-intent', buildId, contentType, fileName) as Promise<{ success: boolean; error?: string }>,
+  setContentEnabled: (buildId: string, contentType: "mod" | "resourcepack" | "shader", fileName: string, enabled: boolean) => ipcRenderer.invoke('build:set-content-enabled', buildId, contentType, fileName, enabled) as Promise<{ success: boolean; fileName?: string; error?: string }>,
+  setBuildIntentPath: (buildId: string, intentPath: string) => ipcRenderer.invoke('build:set-intent-path', buildId, intentPath) as Promise<void>,
+  deleteBuildIntent: (buildName: string) => ipcRenderer.invoke('build:delete-intent', buildName) as Promise<{ success: boolean; error?: string }>,
+  installContentFile: (contentType: "mod" | "resourcepack" | "shader", url: string, fileName: string) => ipcRenderer.invoke('content:install-remote', contentType, url, fileName) as Promise<{ success: boolean; filePath?: string; error?: string }>,
+  importModrinthModpack: (buildName: string, projectSlug: string, versionId?: string) => ipcRenderer.invoke('build:import-modrinth', buildName, projectSlug, versionId) as Promise<ModpackImportResult>,
+  importCurseforgeModpack: (buildName: string, modId: number, fileId: number) => ipcRenderer.invoke('build:import-curseforge', buildName, modId, fileId) as Promise<ModpackImportResult>,
+  importFtbModpack: (buildName: string, modpackId: number, versionId: number) => ipcRenderer.invoke('build:import-ftb', buildName, modpackId, versionId) as Promise<ModpackImportResult>,
+  openAndImportModpack: invoke<ModpackImportResult & { name?: string; description?: string; icon?: string; source?: 'modrinth' | 'curseforge'; intentPath?: string }>('build:open-and-import'),
+  cancelImportModpack: invoke<{ success: boolean }>('build:cancel-import'),
+  onImportProgress: (callback: (progress: ImportProgress) => void) => subscribe('import:progress', callback),
+  onContentDownloadProgress: (callback: (progress: { fileName: string; current: number; total: number }) => void) => subscribe('content:download-progress', callback),
+
+  // ── Shell ──────────────────────────────────────────────
+  openExternal: (url: string) => ipcRenderer.invoke('shell:open-external', url) as Promise<void>,
+  openLauncherFolder: invoke<void>('shell:open-launcher-folder'),
+  openPath: (dirPath: string) => ipcRenderer.invoke('shell:open-path', dirPath) as Promise<void>,
+
+  // ── Logs ───────────────────────────────────────────────
+  shareToMclogs: (content: string) => ipcRenderer.invoke('logs:share-to-mclogs', content) as Promise<{ success: boolean; url?: string; error?: string }>,
+
+  // ── Java ───────────────────────────────────────────────
+  detectJavaInstallations: invoke<JavaDetectResult[]>('java:detect'),
+  pickJavaFile: invoke<string | null>('java:pick-file'),
+  checkJava: invoke<{ installed: boolean; path?: string; version?: string; label?: string }>('java:check'),
+  installJava: invoke<{ success: boolean; path?: string; error?: string }>('java:install'),
+  onJavaInstallProgress: (callback: (progress: { status: string; percent: number | null; message: string }) => void) => subscribe('java:install-progress', callback),
+
+  // ── Worlds ─────────────────────────────────────────────
+  listWorlds: (buildName: string) => ipcRenderer.invoke('worlds:list', buildName) as Promise<WorldInfo[]>,
+  renameWorld: (buildName: string, folder: string, newName: string) => ipcRenderer.invoke('worlds:rename', buildName, folder, newName) as Promise<{ success: boolean; error?: string }>,
+  copyWorld: (buildName: string, folder: string, newName: string) => ipcRenderer.invoke('worlds:copy', buildName, folder, newName) as Promise<{ success: boolean; folder?: string; error?: string }>,
+  importWorldZip: (buildName: string, localFilePath: string, newName?: string) => ipcRenderer.invoke('worlds:import-zip', buildName, localFilePath, newName) as Promise<{ success: boolean; folder?: string; error?: string }>,
+  deleteWorld: (buildName: string, folder: string) => ipcRenderer.invoke('worlds:delete', buildName, folder) as Promise<{ success: boolean; error?: string }>,
+  setWorldIcon: (buildName: string, folder: string, dataUrl: string) => ipcRenderer.invoke('worlds:set-icon', buildName, folder, dataUrl) as Promise<{ success: boolean; error?: string }>,
+  resetWorldIcon: (buildName: string, folder: string) => ipcRenderer.invoke('worlds:reset-icon', buildName, folder) as Promise<{ success: boolean; error?: string }>,
+  listWorldDatapacks: (buildName: string, folder: string) => ipcRenderer.invoke('worlds:list-datapacks', buildName, folder) as Promise<DatapackInfo[]>,
+  installDatapackRemote: (buildName: string, folder: string, url: string, fileName: string) => ipcRenderer.invoke('worlds:install-datapack-remote', buildName, folder, url, fileName) as Promise<{ success: boolean; path?: string; error?: string }>,
+  installDatapackLocal: (buildName: string, folder: string, localFilePath: string) => ipcRenderer.invoke('worlds:install-datapack-local', buildName, folder, localFilePath) as Promise<{ success: boolean; path?: string; error?: string }>,
+  deleteWorldDatapack: (buildName: string, folder: string, fileName: string) => ipcRenderer.invoke('worlds:delete-datapack', buildName, folder, fileName) as Promise<{ success: boolean; error?: string }>,
+
+  // ── Screenshots ───────────────────────────────────────
+  listScreenshots: (buildName: string) => ipcRenderer.invoke('screenshots:list', buildName) as Promise<ScreenshotInfo[]>,
+  getScreenshot: (buildName: string, fileName: string) => ipcRenderer.invoke('screenshots:get', buildName, fileName) as Promise<string | null>,
+  deleteScreenshot: (buildName: string, fileName: string) => ipcRenderer.invoke('screenshots:delete', buildName, fileName) as Promise<{ success: boolean; error?: string }>,
+  renameScreenshot: (buildName: string, fileName: string, newName: string) => ipcRenderer.invoke('screenshots:rename', buildName, fileName, newName) as Promise<{ success: boolean; error?: string }>,
+
+  // ── Cloud (Third-party providers) ──────────────────────
+  cloudListProviders: invoke<Array<{ id: string; name: string }>>('cloud:list-providers'),
+  cloudConnect: (providerId: string, authData?: Record<string, string>) => ipcRenderer.invoke('cloud:connect', providerId, authData) as Promise<{ success: boolean; provider?: string; error?: string }>,
+  cloudIsConnected: (providerId: string) => ipcRenderer.invoke('cloud:is-connected', providerId) as Promise<boolean>,
+  cloudDisconnect: (providerId: string) => ipcRenderer.invoke('cloud:disconnect', providerId) as Promise<{ success: boolean; error?: string }>,
+  cloudListFiles: (providerId: string, folderPath?: string) => ipcRenderer.invoke('cloud:list-files', providerId, folderPath) as Promise<{ success: boolean; files?: Array<{ id: string; name: string; size: number; modifiedAt?: string; path: string; isDir: boolean; category?: string }>; error?: string }>,
+  cloudUploadFile: (providerId: string, localPath: string, remotePath: string) => ipcRenderer.invoke('cloud:upload-file', providerId, localPath, remotePath) as Promise<{ success: boolean; id?: string; name?: string; error?: string }>,
+  cloudDownloadFile: (providerId: string, remotePath: string, localPath: string) => ipcRenderer.invoke('cloud:download-file', providerId, remotePath, localPath) as Promise<{ success: boolean; localPath?: string; error?: string }>,
+  cloudDeleteFile: (providerId: string, remotePath: string) => ipcRenderer.invoke('cloud:delete-file', providerId, remotePath) as Promise<{ success: boolean; error?: string }>,
+  cloudGetQuota: (providerId: string) => ipcRenderer.invoke('cloud:get-quota', providerId) as Promise<{ used: number; total: number } | null>,
+  cloudUploadBuild: (providerId: string, buildName: string, uploadId?: string) => ipcRenderer.invoke('cloud:upload-build', providerId, buildName, uploadId) as Promise<{ success: boolean; id?: string; name?: string; error?: string }>,
+  onCloudUploadProgress: (callback: (data: { id: string; percent: number; stage: "zip" | "upload" }) => void) => subscribe('cloud:upload-progress', callback),
+  getFilePath: (file: File) => webUtils.getPathForFile(file),
+  cloudUploadAccount: (providerId: string, account: { id: string; type: string; username: string; uuid?: string }) => ipcRenderer.invoke('cloud:upload-account', providerId, account) as Promise<{ success: boolean; id?: string; name?: string; error?: string }>,
+  cloudDownloadAndImport: (providerId: string, remotePath: string, fileType: string) => ipcRenderer.invoke('cloud:download-and-import', providerId, remotePath, fileType) as Promise<{ success: boolean; error?: string; account?: { id: string; type: string; username: string; uuid?: string } }>,
+
+  // ── Skins ──────────────────────────────────────────────
+  skinsGetProfile: (accountId?: string) => ipcRenderer.invoke('skins:get-profile', accountId) as Promise<McProfile | null>,
+  skinsUploadSkin: (filePath: string, variant: "classic" | "slim", accountId?: string) => ipcRenderer.invoke('skins:upload-skin', { filePath, variant, accountId }) as Promise<boolean>,
+  skinsDeleteSkin: (accountId?: string) => ipcRenderer.invoke('skins:delete-skin', accountId) as Promise<boolean>,
+  skinsSetCape: (capeId: string | null, accountId?: string) => ipcRenderer.invoke('skins:set-cape', { capeId, accountId }) as Promise<boolean>,
+  skinsListLibrary: (accountId: string) => ipcRenderer.invoke('skins:list-library', accountId) as Promise<LibrarySkin[]>,
+  skinsSaveToLibrary: (filePath: string, name: string, variant: "classic" | "slim", accountId: string, capeId?: string | null) => ipcRenderer.invoke('skins:save-to-library', { filePath, name, variant, accountId, capeId }) as Promise<LibrarySkin | null>,
+  skinsDeleteFromLibrary: (id: string) => ipcRenderer.invoke('skins:delete-from-library', id) as Promise<boolean>,
+  skinsUpdateVariant: (id: string, variant: "classic" | "slim", capeId?: string | null, name?: string) => ipcRenderer.invoke('skins:update-variant', { id, variant, capeId, name }) as Promise<boolean>,
+  skinsApplyLibrarySkin: (skinId: string, accountId: string) => ipcRenderer.invoke('skins:apply-library-skin', { skinId, accountId }) as Promise<boolean>,
+  skinsImportFromUrl: (url: string, name: string, variant: "classic" | "slim", accountId: string) => ipcRenderer.invoke('skins:import-from-url', { url, name, variant, accountId }) as Promise<LibrarySkin | null>,
+
+  readLocalFile: (filePath: string) => ipcRenderer.invoke('read-local-file', filePath) as Promise<string | null>,
+
+  // ── P2P Multiplayer ────────────────────────────────────
+  p2pRegister: (login: string, password: string) => ipcRenderer.invoke('p2p:register', login, password) as Promise<P2PAuthResult>,
+  p2pLogin: (login: string, password: string) => ipcRenderer.invoke('p2p:login', login, password) as Promise<P2PAuthResult>,
+  p2pGetMe: invoke<{ success: boolean; login?: string; userId?: string; error?: string }>('p2p:get-me'),
+  p2pLogout: invoke<{ success: boolean }>('p2p:logout'),
+  p2pListRooms: invoke<{ success: boolean; rooms?: P2PRoom[]; error?: string }>('p2p:list-rooms'),
+  p2pCreateRoom: (name: string, password?: string) => ipcRenderer.invoke('p2p:create-room', name, password) as Promise<P2PRoomOpResult>,
+  p2pJoinRoom: (name: string, password?: string) => ipcRenderer.invoke('p2p:join-room', name, password) as Promise<P2PRoomOpResult>,
+  p2pListMembers: (groupId: string) => ipcRenderer.invoke('p2p:list-members', groupId) as Promise<{ success: boolean; members?: P2PRoomMember[]; error?: string }>,
+  p2pDeleteRoom: (groupId: string) => ipcRenderer.invoke('p2p:delete-room', groupId) as Promise<{ success: boolean; error?: string }>,
+  p2pTransferHost: (groupId: string, targetUserId: string) => ipcRenderer.invoke('p2p:transfer-host', groupId, targetUserId) as Promise<{ success: boolean; error?: string }>,
+  p2pKickMember: (groupId: string, userId: string) => ipcRenderer.invoke('p2p:kick-member', groupId, userId) as Promise<{ success: boolean; error?: string }>,
+  p2pLeaveRoom: (groupId: string) => ipcRenderer.invoke('p2p:leave-room', groupId) as Promise<{ success: boolean; error?: string }>,
+  p2pStart: (role: P2PRole, groupId: string, groupName: string, playerName: string) => ipcRenderer.invoke('p2p:start', role, groupId, groupName, playerName) as Promise<{ success: boolean; error?: string }>,
+  p2pStop: invoke<{ success: boolean }>('p2p:stop'),
+  p2pSendChat: (message: string) => ipcRenderer.invoke('p2p:send-chat', message) as Promise<{ success: boolean; error?: string }>,
+  p2pGetState: invoke<{ state: P2PConnState; role?: P2PRole; groupName?: string; playerName?: string; groupId?: string }>('p2p:get-state'),
+  onP2PLog: (callback: (entry: P2PLogEntry) => void) => subscribe<P2PLogEntry>('p2p:log', callback),
+  onP2PState: (callback: (state: P2PConnState) => void) => subscribe<P2PConnState>('p2p:state', callback),
+  onP2PMembers: (callback: (members: P2PRoomMember[]) => void) => subscribe<P2PRoomMember[]>('p2p:members', callback),
+  onP2PLan: (callback: (server: P2PLanServer) => void) => subscribe<P2PLanServer>('p2p:lan', callback),
+  onP2PLanRemove: (callback: (data: { port: number }) => void) => subscribe<{ port: number }>('p2p:lan_remove', callback),
+  onP2PChat: (callback: (message: P2PChatMessage) => void) => subscribe<P2PChatMessage>('p2p:chat', callback),
+
+  // ── Quick Play ──────────────────────────────────────────
+  quickPlayList: (buildName?: string, gameDir?: string) => ipcRenderer.invoke('quickplay:list', buildName, gameDir) as Promise<QuickPlayEntry[]>,
+  quickPlayClear: (buildName?: string, gameDir?: string) => ipcRenderer.invoke('quickplay:clear', buildName, gameDir) as Promise<void>,
+  quickPlayRemove: (buildName: string | undefined, gameDir: string | undefined, entry: QuickPlayEntry) => ipcRenderer.invoke('quickplay:remove', buildName, gameDir, entry) as Promise<void>,
+
+  // ── Updater ─────────────────────────────────────────────
+  updateCheck: invoke<{ available: boolean; version?: string; error?: string }>('update:check'),
+  updateDownload: invoke<{ success: boolean; error?: string }>('update:download'),
+  updateInstall: invoke<void>('update:install'),
+  updateInfo: invoke<{ version: string | null; downloaded: boolean }>('update:info'),
+  onUpdateStatus: (callback: (status: { status: string; version?: string; releaseDate?: string; releaseNotes?: string; error?: string }) => void) => subscribe('update:status', callback),
+  onUpdateProgress: (callback: (progress: { percent: number; transferred: number; total: number }) => void) => subscribe('update:progress', callback),
+
+  // ── Bundled Mods ────────────────────────────────────────
+  listBundledMods: invoke<Array<{ fileName: string; displayName: string; required: boolean }>>('bundled-mods:list'),
+  installBundledMods: (selected: string[]) => ipcRenderer.invoke('bundled-mods:install', selected) as Promise<{ success: boolean; installed: number; error?: string }>,
+})

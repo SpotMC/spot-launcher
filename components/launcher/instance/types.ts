@@ -1,0 +1,168 @@
+export type ViewMode = "my" | "detail" | "modrinth" | "curseforge" | "ftb" | "trash"
+export type DetailTab = "settings" | "general" | "mods" | "resourcepacks" | "shaders" | "worlds" | "screenshots" | "servers"
+export type ModSort = "relevance" | "downloads" | "follows" | "newest" | "updated" | "featured" | "rating"
+export type Source = "modrinth" | "curseforge" | "ftb"
+export type SearchSource = "both" | Source
+export type ContentType = "mod" | "modpack" | "resourcepack" | "shader"
+export type ModalTab = "description" | "gallery" | "changelog" | "versions"
+
+export type MemoryPreset = "light" | "balanced" | "heavy" | "custom"
+
+export type Build = {
+  id: string
+  name: string
+  description: string
+  version: string
+  modLoader: string
+  loaderVersion?: string
+  icon: string
+  coverImage?: string
+  mods: BuildMod[]
+  resourcepacks: BuildMod[]
+  shaders: BuildMod[]
+  createdAt: string
+  source: "local" | Source
+  projectSlug?: string
+  modpackVersion?: string
+  intentPath?: string
+  installedMods?: Record<string, string>
+  memoryMin?: string
+  memoryMax?: string
+  memoryPreset?: MemoryPreset
+  javaOverride?: boolean
+  javaPath?: string
+  javaArgs?: string
+  windowOverride?: boolean
+  windowWidth?: number
+  windowHeight?: number
+  serverOverride?: boolean
+  server?: string
+  serverPort?: string
+  preLaunchCommand?: string
+  postLaunchCommand?: string
+  wrapperCommand?: string
+  customEnv?: string
+  defaultAccountId?: string
+  playtime: number
+  group?: string
+}
+
+export type BuildMod = {
+  id: string
+  slug: string
+  name: string
+  description: string
+  icon_url?: string
+  version: string
+  source?: "local" | Source
+  projectId?: string
+  modId?: number
+  author?: string
+  enabled?: boolean
+}
+
+// -- Unified Mod Types (aligned with xnlc/mods) --
+
+export type ModSearchResult = {
+  id: string
+  slug: string
+  name: string
+  summary: string
+  iconUrl: string
+  downloadCount: number
+  categories: string[]
+  source: Source
+  author?: string
+  projectId?: string
+  modId?: number
+  primaryFileId?: number
+  primaryFileName?: string
+  fileSize?: number
+  dateCreated?: string
+  dateModified?: string
+}
+
+export type ModDependency = {
+  projectId: string
+  versionId?: string | null
+  fileName?: string | null
+  dependencyType: "required" | "optional" | "incompatible" | "embedded"
+  name?: string
+  slug?: string
+  iconUrl?: string
+}
+
+export type ModVersion = {
+  id: string
+  name: string
+  gameVersion: string
+  downloadCount: number
+  fileName: string
+  fileSize: number
+  downloadUrl?: string
+  versionType?: "release" | "beta" | "alpha"
+  loaders?: string[]
+  changelog?: string
+  datePublished?: string
+  files?: { url: string; size: number; filename: string }[]
+  dependencies?: ModDependency[]
+}
+
+export type ModDetails = {
+  id: string
+  slug: string
+  name: string
+  summary: string
+  description: string
+  iconUrl: string
+  downloadCount: number
+  categories: string[]
+  versions: ModVersion[]
+  gallery: { url: string; title?: string }[]
+  source: Source
+  body?: string
+  modId?: number
+  projectId?: string
+}
+
+// -- World / Save Management --
+
+export type WorldInfo = {
+  folder: string
+  name: string
+  seed: string
+  gameMode: string
+  hardcore: boolean
+  lastPlayed: number
+  playedTime: number
+  mcVersion: string
+  iconDataUrl: string
+  sizeBytes: number
+  lastModified: number
+  path: string
+  datapackCount: number
+}
+
+export type DatapackInfo = {
+  name: string
+  sizeBytes: number
+  lastModified: number
+  path: string
+}
+
+export type ScreenshotInfo = {
+  name: string
+  sizeBytes: number
+  lastModified: number
+  thumbDataUrl: string
+  path: string
+}
+
+/** @deprecated Use ModSearchResult instead */
+export type ModrinthProject = ModSearchResult & { title?: string; description?: string; icon_url?: string; downloads?: number }
+
+/** @deprecated Use ModDetails instead */
+export type CFModalData = ModDetails
+
+/** @deprecated Use ModSearchResult instead */
+export type CFModpack = ModSearchResult
