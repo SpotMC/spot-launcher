@@ -783,7 +783,7 @@ ipcMain.handle("auth:microsoft-refresh", async (_event, refreshToken: string): P
 
 export async function autoRefreshMicrosoftAccounts(): Promise<void> {
   try {
-    const { loadAccounts, saveAccount } = await import("../db")
+    const { loadAccounts, saveAccount } = await import("../db.js")
     const accounts = await loadAccounts()
     
     for (const account of accounts) {
