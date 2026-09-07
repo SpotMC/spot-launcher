@@ -92,6 +92,7 @@ export type LauncherExtraApi = {
   getFilePath: (file: File) => string
   cloudUploadAccount: (providerId: string, account: { id: string; type: string; username: string; uuid?: string }) => Promise<{ success: boolean; id?: string; name?: string; error?: string }>
   cloudDownloadAndImport: (providerId: string, remotePath: string, fileType: string) => Promise<{ success: boolean; error?: string; account?: { id: string; type: string; username: string; uuid?: string } }>
+  refreshMicrosoftToken: (refreshToken: string) => Promise<AuthPayload>
   listWorlds: (buildName: string) => Promise<LauncherWorldInfo[]>
   renameWorld: (buildName: string, folder: string, newName: string) => Promise<{ success: boolean; error?: string }>
   copyWorld: (buildName: string, folder: string, newName: string) => Promise<{ success: boolean; folder?: string; error?: string }>

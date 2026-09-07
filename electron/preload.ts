@@ -151,6 +151,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     interval: number
   }>('auth:microsoft-device-start'),
   pollMicrosoftDeviceCode: (deviceCode: string) => ipcRenderer.invoke('auth:microsoft-device-poll', deviceCode) as Promise<{ status: "pending"; slowDown?: boolean } | { status: "expired" } | { status: "complete"; account: AuthPayload } | { status: "error"; message: string; retryable?: boolean }>,
+  refreshMicrosoftToken: (refreshToken: string) => ipcRenderer.invoke('auth:microsoft-refresh', refreshToken) as Promise<AuthPayload>,
   onAuthProgress: (callback: (msg: string) => void) => {
     const handler = (_: Electron.IpcRendererEvent, msg: string) => callback(msg)
     ipcRenderer.on('auth:progress', handler)

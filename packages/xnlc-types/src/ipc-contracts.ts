@@ -113,6 +113,7 @@ export interface IpcInvokeMap {
     args: [deviceCode: string]
     return: { status: "pending"; slowDown?: boolean } | { status: "expired" } | { status: "complete"; account: AuthPayload } | { status: "error"; message: string; retryable?: boolean }
   }
+  "auth:microsoft-refresh": { args: [refreshToken: string]; return: AuthPayload }
 
   // ── Fetch ──
   "fetch:minecraft-news": { args: []; return: MinecraftNewsEntry[] }

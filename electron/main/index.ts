@@ -1,5 +1,6 @@
 try { require("dotenv/config") } catch {}
 import "./auth"
+import { autoRefreshMicrosoftAccounts } from "./auth"
 import "./discord-rpc"
 
 import { registerModsHandlers } from "./mods"
@@ -16,6 +17,7 @@ import { registerUpdater } from "./updater"
 import { registerSkinsHandlers } from "./skins"
 import { registerBundledModsHandlers } from "./bundled-mods"
 import { registerJavaHandlers } from "./java"
+import { app } from "electron"
 
 registerWindowLifecycle()
 registerSystemHandlers()
@@ -32,6 +34,11 @@ registerQuickPlayHandlers()
 registerUpdater()
 registerSkinsHandlers()
 registerBundledModsHandlers()
+
+// Auto-refresh Microsoft tokens when app is ready
+app.whenReady().then(async () => {
+  await autoRefreshMicrosoftAccounts()
+})
 
 import("@xnlc/mods").catch(() => {})
 

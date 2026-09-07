@@ -735,6 +735,79 @@ ipcMain.handle("auth:elyby-device-poll", async (_event, deviceCode: string) => {
   }
 })
 
+// ── Microsoft Token Refresh ───────────────────────────────
+
+async function refreshMicrosoftToken(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {
+  const clientId = await getMicrosoftDeviceClientId()
+  
+  const response = await fetch(MICROSOFT_DEVICE_TOKEN_URL, {
+    method: "POST",
+    headers: DEVICE_FORM_HEADERS,
+    body: new URLSearchParams({
+      client_id: clientId,
+      grant_type: "refresh_token",
+      refresh_token: refreshToken,
+    }).toString(),
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(`Failed to refresh Microsoft token: HTTP ${response.status} - ${errorText}`)
+  }
+
+  const data = await response.json() as Record<string, unknown>
+  const accessToken = data.access_token as string
+  const newRefreshToken = (data.refresh_token as string) ?? refreshToken
+
+  if (!accessToken) {
+    throw new Error("No access token in refresh response")
+  }
+
+  return { accessToken, refreshToken: newRefreshToken }
+}
+
+async function refreshMicrosoftAccount(refreshToken: string): Promise<MicrosoftAccountPayload> {
+  const { accessToken, refreshToken: newRefreshToken } = await refreshMicrosoftToken(refreshToken)
+  const account = await exchangeDeviceMsaForMinecraft(accessToken, newRefreshToken)
+  return {
+    ...account,
+    refreshToken: newRefreshToken,
+  }
+}
+
+ipcMain.handle("auth:microsoft-refresh", async (_event, refreshToken: string): Promise<MicrosoftAccountPayload> => {
+  return refreshMicrosoftAccount(refreshToken)
+})
+
+// ── Auto-refresh Microsoft tokens on startup ──────────────
+
+export async function autoRefreshMicrosoftAccounts(): Promise<void> {
+  try {
+    const { loadAccounts, saveAccount } = await import("../db")
+    const accounts = await loadAccounts()
+    
+    for (const account of accounts) {
+      if (account.type === "microsoft" && account.refreshToken) {
+        try {
+          console.log(`[Auth] Auto-refreshing Microsoft account: ${account.username}`)
+          const refreshed = await refreshMicrosoftAccount(account.refreshToken)
+          await saveAccount({
+            ...account,
+            accessToken: refreshed.accessToken,
+            refreshToken: refreshed.refreshToken,
+          })
+          console.log(`[Auth] Successfully refreshed Microsoft account: ${account.username}`)
+        } catch (error) {
+          console.error(`[Auth] Failed to refresh Microsoft account ${account.username}:`, error)
+          // Продолжаем с другими аккаунтами даже если один не обновился
+        }
+      }
+    }
+  } catch (error) {
+    console.error("[Auth] Error during auto-refresh of Microsoft accounts:", error)
+  }
+}
+
 // ── XN Skins Device Code Flow (RFC 8628) ───────────────────
 
 async function exchangeXnDeviceAccessToken(accessToken: string, refreshToken: string): Promise<XnSkinsAccountPayload> {
