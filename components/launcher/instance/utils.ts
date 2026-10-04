@@ -2,7 +2,7 @@ import { MOD_LOADERS } from "./constants"
 import type { Build, ModVersion } from "./types"
 
 export function loadBuilds(): Build[] {
-  const saved = localStorage.getItem("xneon-launcher:builds:legacy")
+  const saved = localStorage.getItem("spot-launcher:builds:legacy")
   const hasLegacy = saved ? (JSON.parse(saved) as Partial<Build>[]) : null
   try {
     if (hasLegacy) {
@@ -25,7 +25,7 @@ export function loadBuilds(): Build[] {
         playtime: 0,
       }))
       void window.electronAPI?.saveBuilds(migrated as never)
-      localStorage.removeItem("xneon-launcher:builds:legacy")
+      localStorage.removeItem("spot-launcher:builds:legacy")
       return migrated
     }
   } catch {}

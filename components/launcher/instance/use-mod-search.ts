@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { MODS_PER_PAGE } from "./constants"
 import type { Source, SearchSource, ModSort, ContentType, ModalTab, ModSearchResult, ModVersion, ModDetails, Build, DetailTab } from "./types"
-import type { ModLoaderFilter, ModCategory } from "@xnlc/types"
+import type { ModLoaderFilter, ModCategory } from "@spot/types"
 import { dataCache, STALE_SEARCH_MS } from "@/lib/swr"
 import { SORT_OPTIONS_BY_SOURCE } from "./sort-options"
 

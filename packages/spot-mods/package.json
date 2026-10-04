@@ -1,0 +1,32 @@
+{
+  "name": "@spot/mods",
+  "version": "1.0.2",
+  "description": "Spot Mods - Modrinth and CurseForge API client for Minecraft mod search and management",
+  "type": "module",
+  "author": "MAINER4IK",
+  "license": "MIT",
+  "keywords": [
+    "minecraft",
+    "mods",
+    "modrinth",
+    "curseforge",
+    "minecraft-launcher",
+    "spot"
+  ],
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "rm -rf lib",
+    "prepublishOnly": "npm run build"
+  },
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "files": [
+    "lib"
+  ]
+}

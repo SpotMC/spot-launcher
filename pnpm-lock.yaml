@@ -7,7 +7,7 @@ settings:
 overrides:
   '@emoji-mart/react>react': 19.2.8
   shell-quote: '>=1.9.0'
-  '@xnlc/core>adm-zip': ^0.6.0
+  '@spot/core>adm-zip': ^0.6.0
 
 importers:
 
@@ -28,21 +28,21 @@ importers:
       '@fontsource/unbounded':
         specifier: ^5.3.0
         version: 5.3.0
-      '@xnlc/core':
-        specifier: ^1.0.5
-        version: 1.0.5
-      '@xnlc/mods':
-        specifier: ^1.0.2
-        version: 1.0.2
-      '@xnlc/nbt':
-        specifier: ^1.0.0
-        version: 1.0.0
-      '@xnlc/p2p':
-        specifier: ^1.0.2
-        version: 1.0.2
-      '@xnlc/types':
-        specifier: ^1.0.7
-        version: 1.0.7
+      '@spot/core':
+        specifier: workspace:*
+        version: link:packages/spot-core
+      '@spot/mods':
+        specifier: workspace:*
+        version: link:packages/spot-mods
+      '@spot/nbt':
+        specifier: workspace:*
+        version: link:packages/spot-nbt
+      '@spot/p2p':
+        specifier: workspace:*
+        version: link:packages/spot-p2p
+      '@spot/types':
+        specifier: workspace:*
+        version: link:packages/spot-types
       adm-zip:
         specifier: ^0.6.0
         version: 0.6.0
@@ -76,6 +76,9 @@ importers:
       sql.js:
         specifier: ^1.14.1
         version: 1.14.1
+      tar:
+        specifier: ^7.5.22
+        version: 7.5.22
       three:
         specifier: ^0.185.1
         version: 0.185.1
@@ -189,18 +192,18 @@ importers:
         specifier: ^9.0.10
         version: 9.1.0(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2)
 
-  packages/xnlc-core:
+  packages/spot-core:
     dependencies:
-      '@xnlc/types':
-        specifier: '*'
-        version: 1.0.4
+      '@spot/types':
+        specifier: workspace:*
+        version: link:../spot-types
       adm-zip:
         specifier: ^0.6.0
         version: 0.6.0
 
-  packages/xnlc-mods: {}
+  packages/spot-mods: {}
 
-  packages/xnlc-nbt:
+  packages/spot-nbt:
     devDependencies:
       '@types/node':
         specifier: ^26.2.0
@@ -209,11 +212,11 @@ importers:
         specifier: ^7.0.2
         version: 7.0.2
 
-  packages/xnlc-p2p:
+  packages/spot-p2p:
     dependencies:
-      '@xnlc/types':
-        specifier: '*'
-        version: 1.0.4
+      '@spot/types':
+        specifier: workspace:*
+        version: link:../spot-types
       node-datachannel:
         specifier: ^0.26.0
         version: 0.26.0
@@ -221,7 +224,7 @@ importers:
         specifier: ^8.0.0
         version: 8.21.3
 
-  packages/xnlc-types: {}
+  packages/spot-types: {}
 
 packages:
 
@@ -1157,27 +1160,6 @@ packages:
     engines: {node: '>=14.6'}
     deprecated: this version has critical issues, please update to the latest version
 
-  '@xnlc/core@1.0.5':
-    resolution: {integrity: sha512-419jLAZPs5R0JiZMbDjc2sd1/h9qnmp+vXkwcq3KrKiG3JWsmApiJvAmTOAF3gvMQUzgfzuY4SaJ2ygDqZyCJQ==, tarball: https://git.xneon.org/api/packages/MAINER4IK/npm/%40xnlc%2Fcore/-/1.0.5/core-1.0.5.tgz}
-
-  '@xnlc/mods@1.0.2':
-    resolution: {integrity: sha512-4Bk/m2WmEg9fyJCaxfC8Ww7GYL4cbVJ97WQd3jrZKISI/CO9auK/6yPIjVYBtngyQoL/kQ/kYu9vhoC6Lcb1Hw==, tarball: https://git.xneon.org/api/packages/MAINER4IK/npm/%40xnlc%2Fmods/-/1.0.2/mods-1.0.2.tgz}
-
-  '@xnlc/nbt@1.0.0':
-    resolution: {integrity: sha512-CkGmy/MjBvmG7pyUxAR1aTLO3pvJu+LIXRFfiSdE8ta1ejj2EOCZVbVAAC4g53X5jAUk+8UcO6LbpOxmOLNLJg==, tarball: https://git.xneon.org/api/packages/MAINER4IK/npm/%40xnlc%2Fnbt/-/1.0.0/nbt-1.0.0.tgz}
-
-  '@xnlc/p2p@1.0.2':
-    resolution: {integrity: sha512-rWhUEk6QmfCVqftzt+IxxOejIfWcFfS2JgYR+kvqWq+WAkQYK4HPQzC7t1JjUnhqREiJpVmvgLO0jfXEYnhMWA==, tarball: https://git.xneon.org/api/packages/MAINER4IK/npm/%40xnlc%2Fp2p/-/1.0.2/p2p-1.0.2.tgz}
-
-  '@xnlc/types@1.0.4':
-    resolution: {integrity: sha512-WuXX64N3MWkY6riq5YLWcFMTWffhx5NBYDDnpK5o22LkBrSsHPSvAH4JNDL0vnSe1piAJldiO3P0mECU14aY8w==, tarball: https://git.xneon.org/api/packages/MAINER4IK/npm/%40xnlc%2Ftypes/-/1.0.4/types-1.0.4.tgz}
-
-  '@xnlc/types@1.0.6':
-    resolution: {integrity: sha512-P/iEnMy9ZevvTVT/2iPimXe16YFXRab0pQVv7RcGfySIy/sJJPfhGWliRTX2wyqSFxF5Hz1ENS8gjsmyPh+TDA==, tarball: https://git.xneon.org/api/packages/MAINER4IK/npm/%40xnlc%2Ftypes/-/1.0.6/types-1.0.6.tgz}
-
-  '@xnlc/types@1.0.7':
-    resolution: {integrity: sha512-58elfLQ0a/Vs+85cXy1SYf57GJGSRsg0gKGYX3U3OELut6RGMBJIUM23nH7HaNuJR2WcjO27p6armjZc2Qeb6g==, tarball: https://git.xneon.org/api/packages/MAINER4IK/npm/%40xnlc%2Ftypes/-/1.0.7/types-1.0.7.tgz}
-
   abbrev@4.0.0:
     resolution: {integrity: sha512-a1wflyaL0tHtJSmLSOVybYhy22vRih4eduhhrkcjgrWGnRfrZtovJ2FRjxuTtkkj47O/baf0R86QU5OuYpz8fA==}
     engines: {node: ^20.17.0 || >=22.9.0}
@@ -1302,6 +1284,9 @@ packages:
 
   bcrypt-pbkdf@1.0.2:
     resolution: {integrity: sha512-qeFIXtP4MSoi6NLqO12WfqARWWuCKi2Rn/9hJLEmtB5yTNr9DqFWkJRCf2qShWzPeAMRnOgCrq0sg/KLv5ES9w==}
+
+  bindings@1.5.0:
+    resolution: {integrity: sha512-p2q/t/mhvuOj/UeLlV6566GD/guowlr0hHxClI0W9m7MWYkL1F0hLo+0Aexs9HSPCtR1SXQ0TD3MMKrXZajbiQ==}
 
   bl@4.1.0:
     resolution: {integrity: sha512-1W07cM9gS6DcLperZfFSj+bWLtaPGSOHWhPiGzXmvVJbRLdG82sH/Kn8EtW1VqWVA54AKf2h5k5BbnIbwF3h6w==}
@@ -1761,6 +1746,9 @@ packages:
 
   fflate@0.8.3:
     resolution: {integrity: sha512-tbZNuJrLwGUp3zshBtdy4W+ORxZuIh8a5ilyIEQDC5rY1f3U20JMry0Ll3WBzU58EZKsEuJFXhb5gwv8CsPvgA==}
+
+  file-uri-to-path@1.0.0:
+    resolution: {integrity: sha512-0Zt+s3L7Vf1biwWZ29aARiVYLx7iMGnEUl9x33fbB/j3jR81u/O2LbqK+Bm1CDSNDKVtJ/YjwY7TUd5SkeLQLw==}
 
   filelist@1.0.6:
     resolution: {integrity: sha512-5giy2PkLYY1cP39p17Ech+2xlpTRL9HLspOfEgm0L6CwBXBTgsK5ou0JtzYuepxkaQ/tvhCFIJ5uXo0OrM2DxA==}
@@ -2518,6 +2506,9 @@ packages:
     resolution: {integrity: sha512-vLBWCKb+7LWsX+TbfzWOkw0W81m377tyx3hOweBTjO43CXZnRGS1/JPWs20fr0PgZyDXk6ROYrylsEycK8raDA==}
     engines: {node: '>=22.12.0'}
 
+  node-addon-api@1.7.2:
+    resolution: {integrity: sha512-ibPK3iA+vaY1eEjESkQkM0BbCqFOaZMiXRTtdB0u7b4djtY6JnsjvPdUHVMg6xQt3B8fpTTWHI9A+ADjM9frzg==}
+
   node-api-version@0.2.1:
     resolution: {integrity: sha512-2xP/IGGMmmSQpI1+O/k72jF/ykvZ89JeuKX3TLJAYPDVLUalrshrLHkeVcCCZqG/eEa635cr8IBYzgnDvM2O8Q==}
 
@@ -2793,6 +2784,10 @@ packages:
   readdirp@3.6.0:
     resolution: {integrity: sha512-hOS089on8RduqdbhvQ5Z37A0ESjsqz6qnRcffsMU3495FuTdqSm+7bhJ29JvIOsBDEEnan5DPu9t3To9VRlMzA==}
     engines: {node: '>=8.10.0'}
+
+  register-scheme@https://codeload.github.com/devsnek/node-register-scheme/tar.gz/e7cc9a63a1f512565da44cb57316d9fb10750e17:
+    resolution: {gitHosted: true, tarball: https://codeload.github.com/devsnek/node-register-scheme/tar.gz/e7cc9a63a1f512565da44cb57316d9fb10750e17}
+    version: 0.0.2
 
   rehype-raw@7.0.0:
     resolution: {integrity: sha512-/aE8hCfKlQeA8LmyeyQvQF3eBiLRGNlfBJEvWH7ivp9sBqs7TNqBL5X3v157rM4IFETqDnIOO+z5M/biZbo9Ww==}
@@ -4245,30 +4240,6 @@ snapshots:
 
   '@xmldom/xmldom@0.9.11': {}
 
-  '@xnlc/core@1.0.5':
-    dependencies:
-      '@xnlc/types': 1.0.6
-      adm-zip: 0.6.0
-
-  '@xnlc/mods@1.0.2': {}
-
-  '@xnlc/nbt@1.0.0': {}
-
-  '@xnlc/p2p@1.0.2':
-    dependencies:
-      '@xnlc/types': 1.0.7
-      node-datachannel: 0.26.0
-      ws: 8.21.3
-    transitivePeerDependencies:
-      - bufferutil
-      - utf-8-validate
-
-  '@xnlc/types@1.0.4': {}
-
-  '@xnlc/types@1.0.6': {}
-
-  '@xnlc/types@1.0.7': {}
-
   abbrev@4.0.0: {}
 
   adm-zip@0.6.0: {}
@@ -4418,6 +4389,11 @@ snapshots:
   bcrypt-pbkdf@1.0.2:
     dependencies:
       tweetnacl: 0.14.5
+
+  bindings@1.5.0:
+    dependencies:
+      file-uri-to-path: 1.0.0
+    optional: true
 
   bl@4.1.0:
     dependencies:
@@ -4733,6 +4709,8 @@ snapshots:
     dependencies:
       node-fetch: 2.7.0
       ws: 7.5.13
+    optionalDependencies:
+      register-scheme: https://codeload.github.com/devsnek/node-register-scheme/tar.gz/e7cc9a63a1f512565da44cb57316d9fb10750e17
     transitivePeerDependencies:
       - bufferutil
       - encoding
@@ -4942,6 +4920,9 @@ snapshots:
   fflate@0.6.11: {}
 
   fflate@0.8.3: {}
+
+  file-uri-to-path@1.0.0:
+    optional: true
 
   filelist@1.0.6:
     dependencies:
@@ -5825,6 +5806,9 @@ snapshots:
     dependencies:
       semver: 7.8.5
 
+  node-addon-api@1.7.2:
+    optional: true
+
   node-api-version@0.2.1:
     dependencies:
       semver: 7.8.5
@@ -6116,6 +6100,12 @@ snapshots:
   readdirp@3.6.0:
     dependencies:
       picomatch: 2.3.2
+
+  register-scheme@https://codeload.github.com/devsnek/node-register-scheme/tar.gz/e7cc9a63a1f512565da44cb57316d9fb10750e17:
+    dependencies:
+      bindings: 1.5.0
+      node-addon-api: 1.7.2
+    optional: true
 
   rehype-raw@7.0.0:
     dependencies:

@@ -1,0 +1,48 @@
+{
+  "name": "@spot/core",
+  "version": "1.0.5",
+  "description": "Spot Core - Minecraft launcher library: version resolution, loader installation (Fabric, Quilt, NeoForge, Forge, LiteLoader, OptiFine), asset management, and game launching",
+  "type": "module",
+  "author": "MAINER4IK",
+  "license": "MIT",
+  "keywords": [
+    "minecraft",
+    "launcher",
+    "fabric",
+    "quilt",
+    "neoforge",
+    "forge",
+    "liteloader",
+    "optifine",
+    "minecraft-launcher",
+    "spot"
+  ],
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./microsoft": {
+      "types": "./lib/microsoft.d.ts",
+      "default": "./lib/microsoft.js"
+    },
+    "./retry": {
+      "types": "./lib/retry.d.ts",
+      "default": "./lib/retry.js"
+    }
+  },
+  "dependencies": {
+    "@spot/types": "workspace:*",
+    "adm-zip": "^0.6.0"
+  },
+  "scripts": {
+    "build": "node ./scripts/clean-legacy-forge-launch.mjs && tsc -p tsconfig.json",
+    "clean": "rm -rf lib",
+    "prepublishOnly": "npm run build"
+  },
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "files": [
+    "lib"
+  ]
+}

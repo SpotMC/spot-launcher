@@ -8,7 +8,7 @@ import { callbackSuccessPage, callbackErrorPage } from "../callback-page"
 import { getCloudCredentials } from "../credentials"
 import { generatePkcePair } from "../pkce"
 import { dbHelpers } from "../../../db"
-import { fetchWithRetry } from "@xnlc/core/retry"
+import { fetchWithRetry } from "@spot/core/retry"
 
 const credentials = getCloudCredentials()
 const DBX_CLIENT_ID = credentials.dropbox.clientId

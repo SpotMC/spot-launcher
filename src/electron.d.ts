@@ -5,15 +5,16 @@ import type {
   AuthPayload,
   McProfile,
   LibrarySkin,
-} from '@xnlc/types'
+  VpnDetectResult,
+} from '@spot/types'
 
 export {}
 
 // ── Launcher Extra API ─────────────────────────────────────
 // Types and methods added to the renderer bridge that may not
-// exist in older published versions of @xnlc/types.
+// exist in older published versions of @spot/types.
 // Kept in sync with electron/preload.ts, electron/main/worlds.ts
-// and packages/xnlc-types (domain-types / ipc-contracts).
+// and packages/spot-types (domain-types / ipc-contracts).
 
 export type LauncherWorldInfo = {
   folder: string
@@ -37,6 +38,49 @@ export type LauncherDatapackInfo = {
   sizeBytes: number
   lastModified: number
   path: string
+}
+
+export type UpdateChannel = 'stable' | 'beta'
+
+export type UpdateErrorCode =
+  | 'GAME_RUNNING'
+  | 'NO_UPDATE'
+  | 'DOWNLOAD_BUSY'
+  | 'INVALID_SETTINGS'
+  | 'NETWORK'
+  | 'UNKNOWN'
+
+export type UpdateSettings = {
+  channel: UpdateChannel
+  autoCheck: boolean
+  autoDownload: boolean
+  skipVersion: string | null
+  forced: boolean
+  checkIntervalHours: number
+  feedUrlOverride: string | null
+}
+
+export type UpdateInfoPayload = {
+  version: string | null
+  downloaded: boolean
+  currentVersion: string
+  releaseNotes?: string | null
+  releaseDate?: string | null
+  size?: number | null
+  forced: boolean
+  skipVersion: string | null
+  channel: UpdateChannel
+}
+
+export type UpdateStatusEvent = {
+  status: string
+  version?: string
+  releaseDate?: string
+  releaseNotes?: string
+  size?: number | null
+  forced?: boolean
+  code?: UpdateErrorCode
+  error?: string
 }
 
 export type LauncherScreenshotInfo = {
@@ -92,7 +136,7 @@ export type LauncherExtraApi = {
   getFilePath: (file: File) => string
   cloudUploadAccount: (providerId: string, account: { id: string; type: string; username: string; uuid?: string }) => Promise<{ success: boolean; id?: string; name?: string; error?: string }>
   cloudDownloadAndImport: (providerId: string, remotePath: string, fileType: string) => Promise<{ success: boolean; error?: string; account?: { id: string; type: string; username: string; uuid?: string } }>
-  refreshMicrosoftToken: (refreshToken: string) => Promise<AuthPayload>
+  refreshMicrosoftToken: (refreshToken: string, clientId?: string) => Promise<AuthPayload>
   listWorlds: (buildName: string) => Promise<LauncherWorldInfo[]>
   renameWorld: (buildName: string, folder: string, newName: string) => Promise<{ success: boolean; error?: string }>
   copyWorld: (buildName: string, folder: string, newName: string) => Promise<{ success: boolean; folder?: string; error?: string }>
@@ -111,12 +155,13 @@ export type LauncherExtraApi = {
   listServers: (buildName: string) => Promise<Array<{ name: string; ip: string }>>
   writeServersDat: (buildName: string, servers: Array<{ name: string; ip: string }>) => Promise<{ success: boolean; error?: string }>
   pingServer: (address: string) => Promise<LauncherServerStatus>
+  vpnDetect: () => Promise<VpnDetectResult>
   quickPlayList: (buildName?: string, gameDir?: string) => Promise<QuickPlayEntry[]>
   quickPlayClear: (buildName?: string, gameDir?: string) => Promise<void>
   quickPlayRemove: (buildName: string | undefined, gameDir: string | undefined, entry: QuickPlayEntry) => Promise<void>
   copyBuild: (buildName: string, newName: string) => Promise<{ success: boolean; intentPath?: string; error?: string }>
   renameBuildIntent: (oldName: string, newName: string) => Promise<{ success: boolean; intentPath?: string; error?: string }>
-  exportBuildZip: (buildName: string, label: string, categories?: import('@xnlc/types').BuildExportCategory[]) => Promise<{ success: boolean; path?: string; error?: string }>
+  exportBuildZip: (buildName: string, label: string, categories?: import('@spot/types').BuildExportCategory[]) => Promise<{ success: boolean; path?: string; error?: string }>
   exportBuildModlist: (buildName: string, label: string, format: "html" | "markdown" | "json" | "csv" | "plaintext") => Promise<{ success: boolean; path?: string; error?: string }>
   moveBuildIntentToTrash: (dirName: string) => Promise<{ success: boolean; trashName?: string; error?: string }>
   restoreBuildIntentFromTrash: (dirName: string, trashName: string) => Promise<{ success: boolean; error?: string }>
@@ -125,11 +170,16 @@ export type LauncherExtraApi = {
   deleteTrashItem: (trashName: string) => Promise<{ success: boolean; error?: string }>
   setContentEnabled: (buildName: string, contentType: "mod" | "resourcepack" | "shader", fileName: string, enabled: boolean) => Promise<{ success: boolean; fileName?: string; error?: string }>
   onCliLaunchBuild: (callback: (buildName: string) => void) => () => void
-  updateCheck: () => Promise<{ available: boolean; version?: string; error?: string }>
-  updateDownload: () => Promise<{ success: boolean; error?: string }>
+  onAccountsUpdated: (callback: (detail: { type?: string }) => void) => () => void
+  updateCheck: () => Promise<{ available: boolean; version?: string; skipped?: boolean; forced?: boolean; code?: UpdateErrorCode; error?: string }>
+  updateDownload: () => Promise<{ success: boolean; code?: UpdateErrorCode; error?: string }>
   updateInstall: () => Promise<void>
-  updateInfo: () => Promise<{ version: string | null; downloaded: boolean }>
-  onUpdateStatus: (callback: (status: { status: string; version?: string; releaseDate?: string; releaseNotes?: string; error?: string }) => void) => () => void
+  updateInfo: () => Promise<UpdateInfoPayload>
+  updateSettingsGet: () => Promise<UpdateSettings>
+  updateSettingsSet: (patch: Partial<UpdateSettings>) => Promise<UpdateSettings>
+  updateSkipVersion: (version: string) => Promise<string | null>
+  updateDeferVersion: (version: string) => Promise<boolean>
+  onUpdateStatus: (callback: (status: UpdateStatusEvent) => void) => () => void
   onUpdateProgress: (callback: (progress: { percent: number; transferred: number; total: number }) => void) => () => void
   skinsGetProfile: (accountId?: string) => Promise<McProfile | null>
   skinsUploadSkin: (filePath: string, variant: "classic" | "slim", accountId?: string) => Promise<boolean>
@@ -146,6 +196,7 @@ export type LauncherExtraApi = {
   installBundledMods: (selected: string[]) => Promise<{ success: boolean; installed: number; error?: string }>
   checkJava: () => Promise<{ installed: boolean; path?: string; version?: string; label?: string }>
   installJava: () => Promise<{ success: boolean; path?: string; error?: string }>
+  launchJavaInstaller: () => Promise<{ success: boolean; error?: string }>
   onJavaInstallProgress: (callback: (progress: { status: string; percent: number | null; message: string }) => void) => () => void
   openLegalWindow: () => Promise<void>
   closeLegalWindow: () => Promise<void>
@@ -157,6 +208,6 @@ declare global {
   }
 
   // Re-export types as globals for backward compatibility
-  // Components should migrate to importing from @xnlc/types directly
-  type ImportableLauncherInstance = import('@xnlc/types').ImportableLauncherInstance
+  // Components should migrate to importing from @spot/types directly
+  type ImportableLauncherInstance = import('@spot/types').ImportableLauncherInstance
 }

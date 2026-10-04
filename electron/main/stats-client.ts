@@ -120,7 +120,7 @@ export async function startStatsSession(
   if (heartbeatTimer) clearInterval(heartbeatTimer)
   heartbeatTimer = setInterval(() => {
     if (current) postEvent("heartbeat", current)
-  }, 1000)
+  }, 5000)
 }
 
 /**

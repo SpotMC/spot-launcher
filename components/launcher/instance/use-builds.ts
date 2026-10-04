@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { MOD_LOADERS } from "./constants"
 import { loadBuilds, pickCompatibleVersion } from "./utils"
 import type { Build, BuildMod, ModSearchResult, ModDependency, ModVersion } from "./types"
-import type { BuildExportCategory } from "@xnlc/types"
+import type { BuildExportCategory } from "@spot/types"
 import { enrichBuildModNames } from "@/lib/modrinth-metadata"
 
 type BuildContentListKey = "mods" | "resourcepacks" | "shaders"

@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils"
 import { formatDate, NEWS_CARD_STYLE, NEWS_CARD_TEXT_HEIGHT, NEWS_GRID_GAP, NEWS_GRID_OVERSCAN_ROWS, NEWS_SCROLL_STYLE, type NewsEntry } from "@/lib/home-page-shared"
 
 const REFRESH_INTERVAL = 30 * 60 * 1000
-const NEWS_STORAGE_KEY = "xnlc:news-cache:v1"
+const NEWS_STORAGE_KEY = "spot:news-cache:v1"
 const NEWS_CACHE_MAX_AGE = 12 * 60 * 60 * 1000
 
 type NewsCacheRecord = { ts: number; entries: NewsEntry[] }

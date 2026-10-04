@@ -7,8 +7,8 @@ import type {
   CurseForgeManifestFile,
   FTBModpackVersionManifest,
   FTBFile,
-} from "@xnlc/mods" with { "resolution-mode": "import" }
-import type { BuildExportCategory } from "@xnlc/types" with { "resolution-mode": "import" }
+} from "@spot/mods" with { "resolution-mode": "import" }
+import type { BuildExportCategory } from "@spot/types" with { "resolution-mode": "import" }
 import { getMainWindow } from "../runtime"
 import { getGameDir } from "../minecraft-core"
 import { dbHelpers } from "../../db"

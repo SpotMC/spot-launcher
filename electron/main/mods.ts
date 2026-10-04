@@ -1,5 +1,5 @@
 // ============================================================
-// Mods IPC Handlers — Unified Modrinth + CurseForge via @xnlc/mods
+// Mods IPC Handlers — Unified Modrinth + CurseForge via @spot/mods
 // Author: MAINER4IK
 // ============================================================
 
@@ -12,8 +12,8 @@ import type {
   ModSearchResponse,
   ModSort,
   ModVersion,
-} from "@xnlc/mods" with { "resolution-mode": "import" }
-import type * as ModsApi from "@xnlc/mods" with { "resolution-mode": "import" }
+} from "@spot/mods" with { "resolution-mode": "import" }
+import type * as ModsApi from "@spot/mods" with { "resolution-mode": "import" }
 
 export type { ModSearchResponse, ModDetails, ModVersion, ModDependency }
 
@@ -23,7 +23,7 @@ let modsModulePromise: Promise<ModsModule> | null = null
 
 function loadModsModule(): Promise<ModsModule> {
   if (!modsModulePromise) {
-    modsModulePromise = import("@xnlc/mods")
+    modsModulePromise = import("@spot/mods")
   }
   return modsModulePromise
 }

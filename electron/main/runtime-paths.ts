@@ -2,10 +2,13 @@ import { app } from "electron"
 import path from "path"
 import fs from "fs/promises"
 import { constants } from "fs"
+import { migrateLegacyLauncherDirectories } from "./legacy-migration"
+
+migrateLegacyLauncherDirectories()
 
 const homeDir = app.getPath("home")
-const configDir = path.join(homeDir, ".config", "xneon-launcher")
-const cacheDir = path.join(homeDir, ".cache", "xneon-launcher")
+const configDir = path.join(homeDir, ".config", "spot-launcher")
+const cacheDir = path.join(homeDir, ".cache", "spot-launcher")
 const runtimeDir = path.join(cacheDir, "runtime")
 const runtimeTempDir = path.join(cacheDir, "temp")
 

@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useAccounts } from "@/src/AccountsContext"
 import { getAvatarUrl, ACCOUNT_TYPE_LABELS } from "@/lib/home-page-shared"
 import type { SkinCardData } from "./skin-card"
-import type { McProfile } from "@xnlc/types"
+import type { McProfile } from "@spot/types"
 import {
   IconLoader2, IconUser, IconCheck, IconChevronDown,
   IconPencil, IconRefresh,

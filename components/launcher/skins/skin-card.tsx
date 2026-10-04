@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next"
 import { cn } from "@/lib/utils"
 import { SkinViewer3D } from "@/components/ui/skin-viewer-3d"
 import { IconTrash, IconCheck, IconPencil, IconUser } from "@tabler/icons-react"
-import type { McProfile, LibrarySkin } from "@xnlc/types"
+import type { McProfile, LibrarySkin } from "@spot/types"
 
 export interface SkinCardData {
   id: string

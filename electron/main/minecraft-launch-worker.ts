@@ -2,9 +2,10 @@ import fs from "fs"
 import path from "path"
 import { spawnSync } from "child_process"
 import type { ChildProcess } from "child_process"
-import type { LoaderType } from "@xnlc/core" with { "resolution-mode": "import" }
-import type { WorkerLaunchPayload } from "@xnlc/types" with { "resolution-mode": "import" }
+import type { LoaderType } from "@spot/core" with { "resolution-mode": "import" }
+import type { WorkerLaunchPayload } from "@spot/types" with { "resolution-mode": "import" }
 import { ensureSharedGameLinksSync } from "./shared-game-cache"
+import { NBTReader, NBTWriter } from "@spot/nbt"
 
 let minecraftProcess: ChildProcess | null = null
 let launchStarted = false
@@ -320,16 +321,16 @@ function resolveRetroAuthServer(accountType?: string): string {
     return "ely.by"
   }
 
-  return "https://skins.xneon.org"
+  return "auth.mojang.com"
 }
 
-async function resolveRequiredJavaVersionForPayload(xnlc: unknown, payload: WorkerLaunchPayload): Promise<number | null> {
+async function resolveRequiredJavaVersionForPayload(spot: unknown, payload: WorkerLaunchPayload): Promise<number | null> {
   if (payload.options.loaderType === "custom") {
     return null
   }
 
   try {
-    const w = xnlc as any
+    const w = spot as any
     const baseVersionJson = await w.versionResolver.resolveVersion(payload.options.mcVersion, w.osInfo)
     return w.getRequiredJavaVersion(baseVersionJson, {
       mcVersion: payload.options.mcVersion,
@@ -342,7 +343,7 @@ async function resolveRequiredJavaVersionForPayload(xnlc: unknown, payload: Work
   }
 }
 
-async function prepareJavaEnvironmentForInstallers(xnlc: unknown, payload: WorkerLaunchPayload, javaPath?: string): Promise<void> {
+async function prepareJavaEnvironmentForInstallers(spot: unknown, payload: WorkerLaunchPayload, javaPath?: string): Promise<void> {
   const seeded = seedKnownJavaRuntimes(payload.gameDir, javaPath)
   if (seeded.length > 0) {
     debug(`Seeded Java PATH entries from ${seeded.join(", ")}`)
@@ -353,7 +354,7 @@ async function prepareJavaEnvironmentForInstallers(xnlc: unknown, payload: Worke
   }
 
   try {
-    const w = xnlc as any
+    const w = spot as any
     const baseVersionJson = await w.versionResolver.resolveVersion(payload.options.mcVersion, w.osInfo)
     const requiredJavaVersion = w.getRequiredJavaVersion(baseVersionJson, {
       mcVersion: payload.options.mcVersion,
@@ -397,7 +398,7 @@ process.on("warning", (warning) => {
   debug(`process warning: ${formatUnknownError(warning)}`)
 })
 
-type XnlcLaunchProgress = {
+type spotLaunchProgress = {
   type?: string
   installationPhase?: string
   fileName?: string
@@ -408,6 +409,48 @@ type XnlcLaunchProgress = {
   percent?: number
   currentFile?: string | number
   totalFiles?: number
+}
+
+// ------------------------------------------------------------------
+// Spot launcher: закрепляем официальный сервер в servers.dat ПЕРЕД
+// каждым запуском игры. Даже если игрок удалил сервер внутри
+// Minecraft, при следующем запуске он появится снова.
+// ------------------------------------------------------------------
+const SPOT_SERVER = { name: "SpotMC", ip: "185.9.145.192:30716" } as const
+
+function isSpotServerIp(ip: unknown): boolean {
+  return String(ip ?? "").split(":")[0] === SPOT_SERVER.ip.split(":")[0]
+}
+
+function pinSpotServerDat(gameDir: string): void {
+  try {
+    const datPath = path.join(gameDir, "servers.dat")
+    let nbt: any
+    if (fs.existsSync(datPath)) {
+      try {
+        nbt = new NBTReader(fs.readFileSync(datPath)).read()
+      } catch {
+        nbt = { servers: { type: 10, values: [] } }
+      }
+    } else {
+      nbt = { servers: { type: 10, values: [] } }
+    }
+
+    const existing: any[] = Array.isArray(nbt?.servers?.values) ? nbt.servers.values : []
+    const rest = existing.filter((s) => !isSpotServerIp(s?.ip))
+
+    nbt.servers = nbt.servers ?? { type: 10, values: [] }
+    nbt.servers.values = [
+      { name: SPOT_SERVER.name, ip: SPOT_SERVER.ip, hidden: 0 },
+      ...rest,
+    ]
+
+    const buffer = new NBTWriter().write(nbt)
+    fs.writeFileSync(datPath, buffer)
+    debug(`[Spot] Сервер закреплён в servers.dat: ${SPOT_SERVER.ip}`)
+  } catch (error) {
+    debug(`[Spot] Не удалось закрепить сервер: ${error instanceof Error ? error.message : String(error)}`)
+  }
 }
 
 async function launchMinecraft(payload: WorkerLaunchPayload): Promise<void> {
@@ -423,12 +466,12 @@ async function launchMinecraft(payload: WorkerLaunchPayload): Promise<void> {
     retroauthEnabled: payload.options.retroauthEnabled ?? false,
   })}`)
 
-  const { Xnlc, createLaunchAuth, OutputRelay, cleanEnvForGame } = await import("@xnlc/core")
+  const { Spot, createLaunchAuth, OutputRelay, cleanEnvForGame } = await import("@spot/core")
 
   const javaPath = normalizeJavaPath(payload.options.javaPath)
   const defaultJvmArgs: string[] = []
 
-  // Point versions/libraries/assets at the shared cache before XNLC starts
+  // Point versions/libraries/assets at the shared cache before spot starts
   // installing so downloads are reused across every build of the same version.
   try {
     fs.mkdirSync(payload.gameDir, { recursive: true })
@@ -436,22 +479,23 @@ async function launchMinecraft(payload: WorkerLaunchPayload): Promise<void> {
     // ignore
   }
   ensureSharedGameLinksSync(payload.gameDir)
+  pinSpotServerDat(payload.gameDir)
 
-  const xnlc = new Xnlc({
+  const spot = new Spot({
     gameDir: payload.gameDir,
     defaultJvmArgs,
     javaPath,
   })
-  xnlc.javaRunner.setPipeOutputToConsole(true)
-  debug("XNLC instance created and java runner configured to pipe output")
-  const requiredJavaVersion = await resolveRequiredJavaVersionForPayload(xnlc, payload)
+  spot.javaRunner.setPipeOutputToConsole(true)
+  debug("spot instance created and java runner configured to pipe output")
+  const requiredJavaVersion = await resolveRequiredJavaVersionForPayload(spot, payload)
   if (requiredJavaVersion !== null) {
     debug(`Early required Java version resolved: ${requiredJavaVersion}`)
   }
 
   if (payload.options.retroauthEnabled) {
     try {
-      const { ensureRetroAuthInjector } = await import("@xnlc/core")
+      const { ensureRetroAuthInjector } = await import("@spot/core")
       const retroauthPath = await ensureRetroAuthInjector(payload.gameDir)
       const retroauthServer = resolveRetroAuthServer(payload.account?.type)
       if ((requiredJavaVersion ?? 8) >= 9) {
@@ -472,7 +516,7 @@ async function launchMinecraft(payload: WorkerLaunchPayload): Promise<void> {
     }
   }
 
-  await prepareJavaEnvironmentForInstallers(xnlc, payload, javaPath)
+  await prepareJavaEnvironmentForInstallers(spot, payload, javaPath)
 
   // Offline username override: allow launching with a custom nickname regardless
   // of the stored offline account name.
@@ -560,8 +604,8 @@ async function launchMinecraft(payload: WorkerLaunchPayload): Promise<void> {
     debug(`Quick Play: multiplayer server=${qpOptions.quickPlayMultiplayer}`)
   }
 
-  debug("Calling XNLC launch pipeline")
-  const launchResult = await xnlc.launch(
+  debug("Calling spot launch pipeline")
+  const launchResult = await spot.launch(
     {
       mcVersion: payload.options.mcVersion,
       loaderType: payload.options.loaderType as LoaderType,
@@ -579,7 +623,7 @@ async function launchMinecraft(payload: WorkerLaunchPayload): Promise<void> {
       env: gameEnv,
       wrapperCommand: substituteLaunchVars((payload.options.wrapperCommand ?? "").trim(), launchVarContext) || undefined,
     },
-    (progress: XnlcLaunchProgress) => {
+    (progress: spotLaunchProgress) => {
       send({
         type: "progress",
         progress: {
@@ -597,7 +641,7 @@ async function launchMinecraft(payload: WorkerLaunchPayload): Promise<void> {
     },
   )
 
-  debug("XNLC launch pipeline resolved")
+  debug("spot launch pipeline resolved")
   minecraftProcess = launchResult?.process ?? null
   if (!minecraftProcess) {
     send({ type: "error", error: "Minecraft process was not created" })

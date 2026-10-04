@@ -1,16 +1,16 @@
 // ============================================================
-// XNLC — Minecraft Core (backward-compat re-export layer)
+// spot — Minecraft Core (backward-compat re-export layer)
 // Delegates to LaunchOrchestrator for worker lifecycle
 // ============================================================
 
-import type * as XnlcCoreNS from "@xnlc/core" with { "resolution-mode": "import" }
-import type { XnlcHandler, ResolvedLaunchRequest } from "@xnlc/core" with { "resolution-mode": "import" }
+import type * as SpotCoreNS from "@spot/core" with { "resolution-mode": "import" }
+import type { SpotHandler, ResolvedLaunchRequest } from "@spot/core" with { "resolution-mode": "import" }
 import { logRuntimeDebug } from "./runtime"
 import { LaunchOrchestrator, getLaunchOrchestrator } from "./launch-orchestrator"
 import { dbHelpers, type DbAccount } from "../db"
 
 type LaunchAccountPayload = {
-  type: "elyby" | "xnskins" | "microsoft" | "offline"
+  type: "elyby" | "microsoft" | "offline"
   username: string
   uuid?: string
   accessToken?: string
@@ -22,24 +22,24 @@ type LaunchResultPayload = {
   error?: string
 }
 
-type XnlcModule = typeof XnlcCoreNS
+type SpotModule = typeof SpotCoreNS
 
-let xnlcModulePromise: Promise<XnlcModule> | null = null
-let handler: XnlcHandler | undefined
+let SpotModulePromise: Promise<SpotModule> | null = null
+let handler: SpotHandler | undefined
 
-export function loadXnlcModule(): Promise<XnlcModule> {
-  if (!xnlcModulePromise) {
-    xnlcModulePromise = import("@xnlc/core")
+export function loadSpotModule(): Promise<SpotModule> {
+  if (!SpotModulePromise) {
+    SpotModulePromise = import("@spot/core")
   }
-  return xnlcModulePromise
+  return SpotModulePromise
 }
 
 // ---------- Handler Management ----------
 
-export async function getHandler(): Promise<XnlcHandler> {
+export async function getHandler(): Promise<SpotHandler> {
   if (!handler) {
-    const { createDefaultHandler, getDefaultMinecraftRootFromEnv } = await loadXnlcModule()
-    process.env.XNLC_GAME_DIR = getDefaultMinecraftRootFromEnv()
+    const { createDefaultHandler, getDefaultMinecraftRootFromEnv } = await loadSpotModule()
+    process.env.SPOT_GAME_DIR = getDefaultMinecraftRootFromEnv()
     handler = createDefaultHandler({
       memoryMax: "4G",
       memoryMin: "512M",
@@ -52,7 +52,7 @@ export async function getHandler(): Promise<XnlcHandler> {
 export async function callHandler<T>(
   label: string,
   fallback: T,
-  action: (handler: XnlcHandler) => Promise<T>,
+  action: (handler: SpotHandler) => Promise<T>,
 ): Promise<T> {
   try {
     return await action(await getHandler())
@@ -65,7 +65,7 @@ export async function callHandler<T>(
 // ---------- Game Dir ----------
 
 export async function getGameDir(): Promise<string> {
-  const { getDefaultMinecraftRootFromEnv } = await loadXnlcModule()
+  const { getDefaultMinecraftRootFromEnv } = await loadSpotModule()
   return getDefaultMinecraftRootFromEnv()
 }
 

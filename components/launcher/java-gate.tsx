@@ -26,8 +26,8 @@ export function JavaGate({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  const runInstall = useCallback(async () => {
-    setStatus({ kind: "installing", percent: 0, message: "Подготовка..." })
+  const runSilentInstall = useCallback(async () => {
+    setStatus({ kind: "installing", percent: null, message: "Установка Java..." })
     try {
       const result = await window.electronAPI?.installJava()
       if (result?.success) {
@@ -39,6 +39,33 @@ export function JavaGate({ children }: { children: React.ReactNode }) {
       setStatus({ kind: "error", error: e instanceof Error ? e.message : "Не удалось установить Java" })
     }
   }, [runCheck])
+
+  const runInstall = useCallback(async () => {
+    setStatus({ kind: "installing", percent: 0, message: "Запускаем установщик Java..." })
+    try {
+      const result = await window.electronAPI?.launchJavaInstaller?.()
+      if (result?.success) {
+        // Открыт GUI-мастер. Пока пользователь его не завершит, Java может
+        // отсутствовать, поэтому опрашиваем checkJava, а не считаем успех сразу.
+        setStatus({ kind: "installing", percent: null, message: "Завершите установку в открытом окне..." })
+        const deadline = Date.now() + 5 * 60 * 1000
+        while (Date.now() < deadline) {
+          await new Promise((r) => setTimeout(r, 2000))
+          const check = await window.electronAPI?.checkJava()
+          if (check?.installed) {
+            await runCheck()
+            return
+          }
+        }
+        setStatus({ kind: "error", error: "Java не появилась после установки. Попробуйте ещё раз." })
+      } else {
+        // Встроенного установщика нет (macOS/Linux) — тихая установка.
+        await runSilentInstall()
+      }
+    } catch {
+      await runSilentInstall()
+    }
+  }, [runSilentInstall])
 
   useEffect(() => {
     void runCheck()

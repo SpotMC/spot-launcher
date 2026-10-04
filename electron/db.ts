@@ -5,7 +5,7 @@ import crypto from "node:crypto"
 import { createRequire } from "node:module"
 import { app } from "electron"
 import initSqlJs from "sql.js"
-import type { DbAccount } from "@xnlc/types" with { "resolution-mode": "import" }
+import type { DbAccount } from "@spot/types" with { "resolution-mode": "import" }
 
 // Re-export for backward compatibility with existing imports
 export type { DbAccount }
@@ -28,7 +28,7 @@ function getDataDir(): string {
   if (process.platform === "darwin") {
     return path.join(app.getPath("home"), "Library", "Application Support", "spotlauncher")
   }
-  return path.join(app.getPath("home"), ".xneonlauncher")
+  return path.join(app.getPath("home"), ".spotlauncher")
 }
 
 async function ensureDir(dir: string) {

@@ -58,8 +58,6 @@ export const INITIAL_LAUNCH_UI_STATE: LaunchUiState = {
 }
 export const ACCOUNT_TYPE_LABELS: Record<string, string> = {
   elyby: "Ely.By",
-  xnskins: "XN Skins",
-  xneon: "XN Skins",
   microsoft: "Microsoft",
   offline: "Offline",
 }
@@ -72,7 +70,6 @@ export const getAvatarUrl = (account: AccountWithAvatar, username: string) => {
   const value = isElyBy ? username : (account.uuid || username)
   const params = new URLSearchParams()
   if (isElyBy) params.set("skin_type", "ely")
-  else if (account.type === "xnskins") params.set("skin_type", "xneon")
   else if (account.type === "microsoft") params.set("skin_type", "microsoft")
   else if (account.type === "offline") return "https://mcskinapi-three.vercel.app/avatar/Steve?skin_type=microsoft"
   return params.has("skin_type")

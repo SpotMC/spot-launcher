@@ -27,7 +27,7 @@ import type {
   ModDetails,
   ModDependency,
 } from "./types"
-import type { ModCategory } from "@xnlc/types"
+import type { ModCategory } from "@spot/types"
 
 function normalizeContentIdentity(value?: string): string {
   return String(value ?? "")

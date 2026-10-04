@@ -8,7 +8,7 @@ import { fileURLToPath } from "url"
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(__dirname, "..")
 const HTML_PATH = join(ROOT, "motion-advert.html")
-const OUTPUT = join(ROOT, "xneon-launcher-advert.mp4")
+const OUTPUT = join(ROOT, "spot-launcher-advert.mp4")
 
 const FPS = 15
 const TOTAL_DURATION = 47
@@ -35,7 +35,7 @@ function serveHtml() {
 }
 
 async function renderVideo() {
-  console.log("Xneon Launcher — Video Render")
+  console.log("spot Launcher — Video Render")
   console.log("=".repeat(40))
   console.log(`Resolution: 1920×1080`)
   console.log(`FPS: ${FPS}`)

@@ -5,7 +5,7 @@ const FALLBACK_URL = "https://mcskinapi-three.vercel.app/avatar/Steve?skin_type=
 const imageCache = new Map<string, string>()
 const inflightCache = new Map<string, Promise<string>>()
 
-const STORE_KEY = "xnlc:avatar-cache:v1"
+const STORE_KEY = "spot:avatar-cache:v1"
 const AVATAR_TTL = 24 * 60 * 60 * 1000
 const MAX_ENTRIES = 120
 const MAX_TOTAL_BYTES = 4 * 1024 * 1024

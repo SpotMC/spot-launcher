@@ -36,9 +36,9 @@ const NOISY_DEBUG_PATTERNS = [
   "Worker environment:",
   "Worker gameDir:",
   "Worker options:",
-  "XNLC instance created and java runner configured to pipe output",
-  "Calling XNLC launch pipeline",
-  "XNLC launch pipeline resolved",
+  "spot instance created and java runner configured to pipe output",
+  "Calling spot launch pipeline",
+  "spot launch pipeline resolved",
   "Launch command prepared:",
   "[LibrariesManager]",
   "[NativesExtractor]",
@@ -58,7 +58,7 @@ const NOISY_DEBUG_PATTERNS = [
 ]
 
 function normalizeForDedup(text: string): string {
-  return text.replace(/^(\[XNLC\]\s*)+/, "").trim()
+  return text.replace(/^(\[spot\]\s*)+/, "").trim()
 }
 
 function shouldIgnoreDebugLog(text: string): boolean {
@@ -77,7 +77,7 @@ function shouldPromoteDebugStatus(text: string, phase: LaunchUiState["phase"]): 
 
 function classify(text: string): LogLevel {
   const normalized = text.toLowerCase()
-  if (/^\[(xnlc|minecraft|launcher|java)\]/i.test(text)) return "launcher"
+  if (/^\[(spot|minecraft|launcher|java)\]/i.test(text)) return "launcher"
   if (/\[лаунчер\]|\[launcher\]/i.test(normalized)) return "launcher"
   if (/^\[.*\] \[.*\/ERROR\]: /.test(text)) return "error"
   if (/^\[.*\] \[.*\/WARN\]: /.test(text)) return "warn"

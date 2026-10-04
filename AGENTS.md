@@ -1,4 +1,4 @@
-# AGENTS.md — Xneon Launcher
+# AGENTS.md — Spot Launcher
 
 ## Language
 
@@ -8,12 +8,12 @@ Code, function names, API, terminal commands, and error messages — keep in the
 
 ## Project
 
-Xneon Launcher — Electron + React 19 Minecraft launcher.
+Spot Launcher — Electron + React 19 Minecraft launcher.
 - **Renderer** (React): `components/`, `src/`, `lib/`
 - **Electron main**: `electron/main/`, `electron/preload.ts`
-- **Local packages** (`packages/`): `@xnlc/core`, `@xnlc/mods`, `@xnlc/types`, `@xnlc/p2p`, `@xnlc/nbt` — linked via pnpm workspace (`workspace:*` in `package.json`). Registry fallback at `https://git.xneon.org/api/packages/MAINER4IK/npm/`
-- **IPC contracts**: `packages/xnlc-types/src/ipc-contracts.ts` — single source of truth for channel signatures
-- **Launch params**: `packages/xnlc-types/src/launch-types.ts` — `MinecraftLaunchParams`
+- **Local packages** (`packages/`): `@spot/core`, `@spot/mods`, `@spot/types`, `@spot/p2p`, `@spot/nbt` — linked via pnpm workspace (`workspace:*` in `package.json`)
+- **IPC contracts**: `packages/spot-types/src/ipc-contracts.ts` — single source of truth for channel signatures
+- **Launch params**: `packages/spot-types/src/launch-types.ts` — `MinecraftLaunchParams`
 
 ## Commands
 
@@ -22,7 +22,7 @@ pnpm run dev          # Vite + Electron dev (hot-reload)
 pnpm run build        # production build (vite + tsc)
 pnpm run package      # build + electron-builder → release/
 pnpm run typecheck    # tsc --noEmit (renderer tsconfig)
-pnpm run sync:xnlc    # build & symlink local @xnlc/* packages into node_modules
+pnpm run sync:spot    # build & symlink local @spot/* packages into node_modules
 ```
 
 No lint/test scripts exist. `pnpm run build` is the primary verification.
@@ -38,10 +38,10 @@ No lint/test scripts exist. `pnpm run build` is the primary verification.
 
 - **Vite `base: './'`** — all asset paths in HTML must be relative (`./path`), not absolute (`/path`). Absolute paths break in the packaged Electron app (asar).
 - **`@/*` alias** resolves to project root: `@/src` → `src/`, `@/components` → `components/`.
-- **IPC**: preload exposes `window.electronAPI` methods. Types in `src/electron.d.ts`. Adding a new IPC channel requires updating: handler in `electron/main/`, preload bridge in `electron/preload.ts`, type in `src/electron.d.ts`, and contract in `packages/xnlc-types/src/ipc-contracts.ts`.
-- **Server data**: `servers.dat` uses raw NBT via `@xnlc/nbt` — **no** `{ compressed: "gzip" }` on read/write. `level.dat` **requires** `{ compressed: "gzip" }`.
+- **IPC**: preload exposes `window.electronAPI` methods. Types in `src/electron.d.ts`. Adding a new IPC channel requires updating: handler in `electron/main/`, preload bridge in `electron/preload.ts`, type in `src/electron.d.ts`, and contract in `packages/spot-types/src/ipc-contracts.ts`.
+- **Server data**: `servers.dat` uses raw NBT via `@spot/nbt` — **no** `{ compressed: "gzip" }` on read/write. `level.dat` **requires** `{ compressed: "gzip" }`.
 - **Minecraft launch**: `electron/main/minecraft-launch-worker.ts` runs in a forked worker. `--quickPlayMultiplayer ip:port` is used for server connect (not `--server`/`--port`).
-- **Build intent dirs**: `getBuildIntentPath(buildName)` → `%APPDATA%/xneonlauncher/intents/<sanitized-name>/` — isolates each build's `.minecraft`.
+- **Build intent dirs**: `getBuildIntentPath(buildName)` → `%APPDATA%/spotlauncher/intents/<sanitized-name>/` — isolates each build's `.minecraft`.
 - **Accounts**: `src/AccountsContext.tsx` provides `activeAccount`, `accounts`.
 - **Language**: all user-facing strings go through `react-i18next` (`src/i18n/`), not hardcoded.
 
@@ -51,11 +51,11 @@ No lint/test scripts exist. `pnpm run build` is the primary verification.
 - After adding/editing IPC channels, run `pnpm run build` (not just `dev`) to catch type errors across both tsconfigs.
 - `multimc.svg` and `polymc.svg` icons don't exist in `public/launcher-icons/` — only `.png` variants are available.
 - `sql.js` is used (not better-sqlite3) for reading Modrinth App's `app.db` — table is `instances` joined with `instance_content_sets`, not `profiles`.
-- `prismarine-nbt` was replaced by `@xnlc/nbt` — do not re-add prismarine-nbt.
+- `prismarine-nbt` was replaced by `@spot/nbt` — do not re-add prismarine-nbt.
 
 ## Package manager
 
 This project uses **pnpm** (v11+). Configuration lives in:
 - `pnpm-workspace.yaml` — workspace packages, overrides, allowBuilds, security settings
 - `.npmrc` — auth/registry settings only (pnpm 11 ignores non-auth settings here)
-- `package.json` — dependencies use `workspace:*` for local `@xnlc/*` packages
+- `package.json` — dependencies use `workspace:*` for local `@spot/*` packages

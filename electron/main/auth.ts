@@ -1,17 +1,19 @@
 import { ipcMain, BrowserWindow } from "electron"
 import path from "path"
 import crypto from "node:crypto"
-import { getMainWindow } from "./runtime"
 import { ensureRuntimeTempDir } from "./runtime"
-import { getMicrosoftClientId, getMicrosoftDeviceClientId, getElyClientId, getElyDeviceClientId } from "./config"
-import { fetchWithRetry } from "@xnlc/core/retry"
+import { getMicrosoftDeviceClientId, getElyClientId, getElyDeviceClientId, getElyClientSecret } from "./config"
+import { fetchWithRetry } from "@spot/core/retry"
+import {
+  xboxUserStep,
+  xstsStep,
+  minecraftLauncherLogin,
+  refreshMicrosoftMcSession,
+} from "./microsoft-token"
 
 const MICROSOFT_DEVICE_CODE_URL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode"
 const MICROSOFT_DEVICE_TOKEN_URL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token"
 const MICROSOFT_DEVICE_SCOPE = "XboxLive.SignIn XboxLive.offline_access"
-const XBOX_LIVE_AUTH_URL = "https://user.auth.xboxlive.com/user/authenticate"
-const XSTS_AUTH_URL = "https://xsts.auth.xboxlive.com/xsts/authorize"
-const MINECRAFT_LAUNCHER_LOGIN_URL = "https://api.minecraftservices.com/launcher/login"
 const MINECRAFT_PROFILE_URL = "https://api.minecraftservices.com/minecraft/profile"
 const DEVICE_FORM_HEADERS = { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" }
 const DEVICE_HTTP_TIMEOUT_MS = 30000
@@ -22,6 +24,7 @@ type MicrosoftAccountPayload = {
   uuid: string
   accessToken: string
   refreshToken: string
+  clientId?: string
 }
 
 type MicrosoftModule = {
@@ -34,20 +37,12 @@ let microsoftModulePromise: Promise<MicrosoftModule> | null = null
 
 function loadMicrosoftModule(): Promise<MicrosoftModule> {
   if (!microsoftModulePromise) {
-    microsoftModulePromise = import("@xnlc/core/microsoft")
+    microsoftModulePromise = import("@spot/core/microsoft")
   }
   return microsoftModulePromise
 }
 
 type ElyByAccountPayload = {
-  id: string
-  username: string
-  uuid: string
-  accessToken: string
-  refreshToken: string
-}
-
-type XnSkinsAccountPayload = {
   id: string
   username: string
   uuid: string
@@ -64,25 +59,11 @@ function pickFirstString(...values: unknown[]): string {
   return ""
 }
 
-import { getElyClientSecret } from "./config"
-
 const ELY_REDIRECT_URI = "http://localhost:51234/elyby/callback"
 const ELY_SCOPE = "account_info minecraft_server_session offline_access"
 const ELY_DEVICE_CODE_URL = "https://account.ely.by/api/oauth2/v1/devicecode"
 const ELY_DEVICE_TOKEN_URL = "https://account.ely.by/api/oauth2/v1/token"
 const ELY_INFO_URL = "https://account.ely.by/api/account/v1/info"
-
-const XN_REDIRECT_URI = "http://localhost:5123/xneon/callback"
-const XN_CLIENT_ID = "rxBXISdaEO9P"
-const XN_SCOPE = "account_info offline_access minecraft_server_session"
-const XN_AUTH_SERVER = "https://skins.xneon.org"
-const XN_DEVICE_CODE_URL = `${XN_AUTH_SERVER}/api/oauth2/v1/devicecode`
-const XN_DEVICE_TOKEN_URL = `${XN_AUTH_SERVER}/api/oauth2/v1/token`
-const XN_ACCOUNT_INFO_URL = `${XN_AUTH_SERVER}/api/account/v1/info`
-
-async function getElyClientSecretResolved(): Promise<string> {
-  return getElyClientSecret()
-}
 
 function createAuthCallbackHandler(
   authWindow: BrowserWindow,
@@ -189,16 +170,12 @@ function createAuthCallbackHandler(
   }
 }
 
-export { XN_AUTH_SERVER, XN_REDIRECT_URI, XN_SCOPE }
-
-async function makeOAuthWindow(title: string) {
+async function makeOAuthWindow() {
   await ensureRuntimeTempDir()
-  const preload = title === "xnskins"
-    ? path.join(__dirname, "../auth-xnskins-preload.js")
-    : path.join(__dirname, "../auth-preload.js")
+  const preload = path.join(__dirname, "../auth-preload.js")
 
   // Уникальная in-memory сессия для каждого запуска авторизации
-  const sessionPartition = `in-memory://xnskins-auth-${Date.now()}`
+  const sessionPartition = `in-memory://oauth-auth-${Date.now()}`
 
   const authWindow = new BrowserWindow({
     width: 520,
@@ -229,7 +206,7 @@ ipcMain.handle("auth:elyby-login", async (): Promise<ElyByAccountPayload> => {
   authUrl.searchParams.set("scope", ELY_SCOPE)
   authUrl.searchParams.set("state", state)
 
-  const authWindow = await makeOAuthWindow("elyby")
+  const authWindow = await makeOAuthWindow()
   authWindow.show()
   authWindow.focus()
 
@@ -241,54 +218,12 @@ ipcMain.handle("auth:elyby-login", async (): Promise<ElyByAccountPayload> => {
   return exchangeElyByCode(code)
 })
 
-function toBase64Url(buf: Buffer): string {
-  return buf.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "")
-}
-
-ipcMain.handle("auth:xnskins-login", async (): Promise<XnSkinsAccountPayload> => {
-  const state = crypto.randomBytes(12).toString("hex")
-  const clientId = XN_CLIENT_ID
-
-  // PKCE (RFC 7636) — verifier хранится только на этом устройстве
-  const verifier = toBase64Url(crypto.randomBytes(64))
-  const challenge = toBase64Url(crypto.createHash("sha256").update(verifier).digest())
-
-  const authorizeUrl = new URL(`${XN_AUTH_SERVER}/oauth2/authorize`)
-  authorizeUrl.searchParams.set("client_id", clientId)
-  authorizeUrl.searchParams.set("redirect_uri", XN_REDIRECT_URI)
-  authorizeUrl.searchParams.set("scope", XN_SCOPE)
-  authorizeUrl.searchParams.set("response_type", "code")
-  authorizeUrl.searchParams.set("state", state)
-  authorizeUrl.searchParams.set("code_challenge", challenge)
-  authorizeUrl.searchParams.set("code_challenge_method", "S256")
-
-  const encodeURIComponentAll = (str: string) =>
-    encodeURIComponent(str).replace(/[!'()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`)
-
-  const authorizeUrlStr = authorizeUrl.toString()
-  const loginUrlStr = `${XN_AUTH_SERVER}/login?next=${encodeURIComponentAll(authorizeUrlStr)}`
-
-  console.log("[XN Skins] authorizeUrl:", authorizeUrlStr)
-  console.log("[XN Skins] loginUrl:", loginUrlStr)
-
-  const authWindow = await makeOAuthWindow("xnskins")
-  authWindow.show()
-  authWindow.focus()
-
-  const code = await new Promise<string>((resolve, reject) => {
-    createAuthCallbackHandler(authWindow, "auth:xnskins-callback", XN_REDIRECT_URI, resolve, reject, state)
-    authWindow.loadURL(loginUrlStr)
-  })
-
-  return exchangeXnSkinsCode(code, verifier)
-})
-
 ipcMain.handle("auth:microsoft-login", async (): Promise<MicrosoftAccountPayload> => {
   const microsoft = await loadMicrosoftModule()
   const redirectUri = microsoft.getMicrosoftRedirectUri()
   const authUrl = microsoft.createMicrosoftAuthUrl()
 
-  const authWindow = await makeOAuthWindow("microsoft")
+  const authWindow = await makeOAuthWindow()
   authWindow.show()
   authWindow.focus()
 
@@ -312,7 +247,7 @@ async function exchangeElyByCode(code: string): Promise<ElyByAccountPayload> {
 
   try {
     const clientId = await getElyClientId()
-    const clientSecret = await getElyClientSecretResolved()
+    const clientSecret = await getElyClientSecret()
 
     const tokenRes = await Promise.race([
       fetch("https://account.ely.by/api/oauth2/v1/token", {
@@ -363,90 +298,6 @@ async function exchangeElyByCode(code: string): Promise<ElyByAccountPayload> {
   }
 }
 
-async function fetchXnAccountInfo(accessToken: string): Promise<{ id: string; uuid: string; username: string }> {
-  const userRes = await fetch(XN_ACCOUNT_INFO_URL, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  })
-
-  if (!userRes.ok) {
-    throw new Error("Не удалось получить информацию о пользователе XN Skins")
-  }
-
-  const userInfo = await userRes.json() as Record<string, unknown>
-  const profile = (userInfo.profile as Record<string, unknown> | undefined) ?? {}
-
-  const uuid = pickFirstString(
-    userInfo.uuid,
-    userInfo.id,
-    userInfo.profileId,
-    profile.uuid,
-    profile.id,
-    profile.profileId,
-  )
-
-  const username = pickFirstString(
-    userInfo.username,
-    userInfo.name,
-    profile.username,
-    profile.name,
-  ) || "Unknown"
-
-  return { id: uuid || username, uuid, username }
-}
-
-async function exchangeXnSkinsCode(code: string, verifier: string): Promise<XnSkinsAccountPayload> {
-  const controller = new AbortController()
-  const timeout = new Promise<never>((_, reject) => {
-    const timer = setTimeout(() => {
-      controller.abort()
-      reject(new Error("Превышено время ожидания ответа от XN Skins"))
-    }, 30000)
-    controller.signal.addEventListener("abort", () => clearTimeout(timer))
-  })
-
-  try {
-    const clientId = XN_CLIENT_ID
-
-    const tokenRes = await Promise.race([
-      fetch(`${XN_AUTH_SERVER}/oauth2/token`, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          grant_type: "authorization_code",
-          client_id: clientId,
-          redirect_uri: XN_REDIRECT_URI,
-          code,
-          code_verifier: verifier,
-        }).toString(),
-        signal: controller.signal,
-      }),
-      timeout,
-    ]) as Response
-
-    const tokenData = await tokenRes.json() as Record<string, unknown>
-    if (tokenRes.status >= 400 || !tokenData.access_token) {
-      const desc = (tokenData.error_description ?? tokenData.error ?? "Token exchange failed") as string
-      throw new Error(desc)
-    }
-
-    const accessToken = tokenData.access_token as string
-    const refreshToken = (tokenData.refresh_token as string) ?? ""
-
-    const { id, uuid, username } = await fetchXnAccountInfo(accessToken)
-
-    return {
-      id,
-      uuid,
-      username,
-      accessToken,
-      refreshToken,
-    }
-  } catch (err) {
-    if (err instanceof DOMException && err.name === "AbortError") throw new Error("Превышено время ожидания ответа от XN Skins")
-    throw err instanceof Error ? err : new Error(String(err))
-  }
-}
-
 // ── Microsoft Device Code Flow (RFC 8628) ──────────────────
 
 type DeviceStartResult = {
@@ -457,8 +308,6 @@ type DeviceStartResult = {
   expiresIn: number
   interval: number
 }
-
-type XToken = { token: string; uhs: string }
 
 async function requestDeviceCode(clientId: string, scope: string, deviceCodeUrl: string): Promise<DeviceStartResult> {
   const body = new URLSearchParams({ client_id: clientId, scope })
@@ -535,77 +384,6 @@ async function pollDeviceToken(clientId: string, deviceCode: string, tokenUrl: s
   }
 }
 
-async function xboxUserStep(msaAccessToken: string): Promise<XToken> {
-  const response = await fetchWithRetry(XBOX_LIVE_AUTH_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json", "x-xbl-contract-version": "1" },
-    body: JSON.stringify({
-      Properties: { AuthMethod: "RPS", SiteName: "user.auth.xboxlive.com", RpsTicket: `d=${msaAccessToken}` },
-      RelyingParty: "http://auth.xboxlive.com",
-      TokenType: "JWT",
-    }),
-  }, { retries: 2 })
-
-  const raw = await response.text()
-  if (!response.ok) throw new Error(`Xbox user authentication failed: HTTP ${response.status}: ${raw}`)
-
-  const obj = JSON.parse(raw) as Record<string, unknown>
-  const token = obj.Token as string | undefined
-  const xui = (obj.DisplayClaims as { xui?: Array<{ uhs?: string }> } | undefined)?.xui
-  const uhs = xui?.[0]?.uhs ?? ""
-  if (!token || !uhs) throw new Error("Xbox user authentication: missing token or uhs")
-
-  return { token, uhs }
-}
-
-async function xstsStep(userToken: string): Promise<XToken> {
-  const response = await fetchWithRetry(XSTS_AUTH_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json", "x-xbl-contract-version": "1" },
-    body: JSON.stringify({
-      Properties: { SandboxId: "RETAIL", UserTokens: [userToken] },
-      RelyingParty: "rp://api.minecraftservices.com/",
-      TokenType: "JWT",
-    }),
-  }, { retries: 2 })
-
-  const raw = await response.text()
-  if (!response.ok) {
-    let xerr: number | undefined
-    try {
-      const obj = JSON.parse(raw) as Record<string, unknown>
-      xerr = typeof obj.XErr === "number" ? obj.XErr : undefined
-    } catch { /* ignore */ }
-    throw new Error(`XSTS authorization failed: HTTP ${response.status}${xerr !== undefined ? ` (XErr ${xerr})` : ""}`)
-  }
-
-  const obj = JSON.parse(raw) as Record<string, unknown>
-  const token = obj.Token as string | undefined
-  if (!token) throw new Error("XSTS authorization: missing token")
-  return { token, uhs: "" }
-}
-
-async function minecraftLauncherLogin(uhs: string, xstsToken: string): Promise<{ accessToken: string; username: string }> {
-  const response = await fetchWithRetry(MINECRAFT_LAUNCHER_LOGIN_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify({ xtoken: `XBL3.0 x=${uhs};${xstsToken}`, platform: "PC_LAUNCHER" }),
-  }, { retries: 2 })
-
-  const raw = await response.text()
-  let obj: Record<string, unknown>
-  try {
-    obj = JSON.parse(raw) as Record<string, unknown>
-  } catch {
-    throw new Error(`Failed to get Minecraft access token: invalid JSON (HTTP ${response.status})`)
-  }
-  if (!response.ok) throw new Error(`Failed to get Minecraft access token: HTTP ${response.status}: ${raw}`)
-  if (typeof obj.access_token !== "string" || typeof obj.username !== "string") {
-    throw new Error("Failed to parse the Minecraft access token response.")
-  }
-  return { accessToken: obj.access_token, username: obj.username }
-}
-
 async function minecraftProfile(accessToken: string): Promise<{ id: string; name: string }> {
   const response = await fetchWithRetry(MINECRAFT_PROFILE_URL, {
     headers: { "Content-Type": "application/json", Accept: "application/json", Authorization: `Bearer ${accessToken}` },
@@ -627,7 +405,11 @@ async function minecraftProfile(accessToken: string): Promise<{ id: string; name
   return { id: obj.id, name: obj.name }
 }
 
-async function exchangeDeviceMsaForMinecraft(msaAccessToken: string, refreshToken: string): Promise<MicrosoftAccountPayload> {
+async function exchangeDeviceMsaForMinecraft(
+  msaAccessToken: string,
+  refreshToken: string,
+  clientId: string,
+): Promise<MicrosoftAccountPayload> {
   const userToken = await xboxUserStep(msaAccessToken)
   const xstsToken = await xstsStep(userToken.token)
   const mc = await minecraftLauncherLogin(userToken.uhs, xstsToken.token)
@@ -642,6 +424,7 @@ async function exchangeDeviceMsaForMinecraft(msaAccessToken: string, refreshToke
     username,
     accessToken: mc.accessToken,
     refreshToken,
+    clientId,
   }
 }
 
@@ -668,7 +451,7 @@ ipcMain.handle("auth:microsoft-device-poll", async (_event, deviceCode: string) 
   }
 
   try {
-    const account = await exchangeDeviceMsaForMinecraft(result.accessToken, result.refreshToken ?? "")
+    const account = await exchangeDeviceMsaForMinecraft(result.accessToken, result.refreshToken ?? "", clientId)
     return { status: "complete" as const, account }
   } catch (err) {
     return {
@@ -737,120 +520,20 @@ ipcMain.handle("auth:elyby-device-poll", async (_event, deviceCode: string) => {
 
 // ── Microsoft Token Refresh ───────────────────────────────
 
-async function refreshMicrosoftToken(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {
-  const clientId = await getMicrosoftDeviceClientId()
-  
-  const response = await fetch(MICROSOFT_DEVICE_TOKEN_URL, {
-    method: "POST",
-    headers: DEVICE_FORM_HEADERS,
-    body: new URLSearchParams({
-      client_id: clientId,
-      grant_type: "refresh_token",
-      refresh_token: refreshToken,
-    }).toString(),
-  })
+ipcMain.handle("auth:microsoft-refresh", async (_event, refreshToken: string, clientId?: string): Promise<MicrosoftAccountPayload> => {
+  const resolvedClientId = clientId || await getMicrosoftDeviceClientId()
+  const tokens = await refreshMicrosoftMcSession(resolvedClientId, refreshToken)
 
-  if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`Failed to refresh Microsoft token: HTTP ${response.status} - ${errorText}`)
-  }
-
-  const data = await response.json() as Record<string, unknown>
-  const accessToken = data.access_token as string
-  const newRefreshToken = (data.refresh_token as string) ?? refreshToken
-
-  if (!accessToken) {
-    throw new Error("No access token in refresh response")
-  }
-
-  return { accessToken, refreshToken: newRefreshToken }
-}
-
-async function refreshMicrosoftAccount(refreshToken: string): Promise<MicrosoftAccountPayload> {
-  const { accessToken, refreshToken: newRefreshToken } = await refreshMicrosoftToken(refreshToken)
-  const account = await exchangeDeviceMsaForMinecraft(accessToken, newRefreshToken)
-  return {
-    ...account,
-    refreshToken: newRefreshToken,
-  }
-}
-
-ipcMain.handle("auth:microsoft-refresh", async (_event, refreshToken: string): Promise<MicrosoftAccountPayload> => {
-  return refreshMicrosoftAccount(refreshToken)
-})
-
-// ── Auto-refresh Microsoft tokens on startup ──────────────
-
-export async function autoRefreshMicrosoftAccounts(): Promise<void> {
-  try {
-    const { loadAccounts, saveAccount } = await import("../db.js")
-    const accounts = await loadAccounts()
-    
-    for (const account of accounts) {
-      if (account.type === "microsoft" && account.refreshToken) {
-        try {
-          console.log(`[Auth] Auto-refreshing Microsoft account: ${account.username}`)
-          const refreshed = await refreshMicrosoftAccount(account.refreshToken)
-          await saveAccount({
-            ...account,
-            accessToken: refreshed.accessToken,
-            refreshToken: refreshed.refreshToken,
-          })
-          console.log(`[Auth] Successfully refreshed Microsoft account: ${account.username}`)
-        } catch (error) {
-          console.error(`[Auth] Failed to refresh Microsoft account ${account.username}:`, error)
-          // Продолжаем с другими аккаунтами даже если один не обновился
-        }
-      }
-    }
-  } catch (error) {
-    console.error("[Auth] Error during auto-refresh of Microsoft accounts:", error)
-  }
-}
-
-// ── XN Skins Device Code Flow (RFC 8628) ───────────────────
-
-async function exchangeXnDeviceAccessToken(accessToken: string, refreshToken: string): Promise<XnSkinsAccountPayload> {
-  const { id, uuid, username } = await fetchXnAccountInfo(accessToken)
+  const profile = await minecraftProfile(tokens.accessToken)
+  const uuid = profile.id || "unknown"
+  const username = profile.name || "Microsoft User"
 
   return {
-    id,
+    id: uuid,
     uuid,
     username,
-    accessToken,
-    refreshToken,
-  }
-}
-
-ipcMain.handle("auth:xnskins-device-start", async (): Promise<DeviceStartResult> => {
-  return requestDeviceCode(XN_CLIENT_ID, XN_SCOPE, XN_DEVICE_CODE_URL)
-})
-
-ipcMain.handle("auth:xnskins-device-poll", async (_event, deviceCode: string) => {
-  const result = await pollDeviceToken(XN_CLIENT_ID, deviceCode, XN_DEVICE_TOKEN_URL)
-
-  if (result.status === "pending") {
-    return { status: "pending" as const, slowDown: result.slowDown }
-  }
-  if (result.status === "expired") {
-    return { status: "expired" as const }
-  }
-  if (result.error) {
-    return { status: "error" as const, message: result.error, retryable: result.retryable }
-  }
-  if (!result.accessToken) {
-    return { status: "error" as const, message: "Не удалось получить токен", retryable: true }
-  }
-
-  try {
-    const account = await exchangeXnDeviceAccessToken(result.accessToken, result.refreshToken ?? "")
-    return { status: "complete" as const, account }
-  } catch (err) {
-    return {
-      status: "error" as const,
-      message: err instanceof Error ? err.message : String(err),
-      retryable: true,
-    }
+    accessToken: tokens.accessToken,
+    refreshToken: tokens.refreshToken,
+    clientId: resolvedClientId,
   }
 })
-

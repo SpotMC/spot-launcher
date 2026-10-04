@@ -1,18 +1,22 @@
-import type { AuthSession, VersionInfo } from "@xnlc/core" with { "resolution-mode": "import" }
-import type { MinecraftLaunchParams } from "@xnlc/types" with { "resolution-mode": "import" }
+import type { AuthSession, VersionInfo } from "@spot/core" with { "resolution-mode": "import" }
+import type { MinecraftLaunchParams } from "@spot/types" with { "resolution-mode": "import" }
 import * as fs from "fs/promises"
 import * as path from "path"
 import {
   clearLaunchState,
   getGameDir,
   isLaunchActive,
-  loadXnlcModule,
+  loadSpotModule,
   resolveLaunchAccount,
   runLaunchWorker,
   stopLaunchWorker,
 } from "./minecraft-core"
 import { logRuntimeDebug } from "./runtime"
+import { isUpdateRequired } from "./updater"
 import { registerIpcHandlers, ctxHandler, rawHandler, type IpcHandlerDef } from "./ipc-router"
+
+/** Код ошибки, который renderer переводит через i18n в понятный текст. */
+const UPDATE_REQUIRED_ERROR = "UPDATE_REQUIRED"
 
 type LaunchResultPayload = {
   success: boolean
@@ -152,10 +156,16 @@ const versionHandlers: IpcHandlerDef[] = [
 const launchHandlers: IpcHandlerDef[] = [
   rawHandler("minecraft:launch", async (...args: unknown[]): Promise<LaunchResultPayload> => {
     const options = args[0] as MinecraftLaunchParams
-    const { resolveLaunchRequest } = await loadXnlcModule()
+    const { resolveLaunchRequest } = await loadSpotModule()
     const request = resolveLaunchRequest(options as any)
 
     try {
+      // Принудительное обновление: если включено и найдена более новая версия —
+      // не даём запустить игру, пока обновление не установлено.
+      if (await isUpdateRequired()) {
+        return { success: false, error: UPDATE_REQUIRED_ERROR }
+      }
+
       if (isLaunchActive()) {
         return { success: false, error: "Minecraft is already launching or running" }
       }

@@ -39,11 +39,57 @@ import type {
   BuildExportCategory,
   McProfile,
   LibrarySkin,
-} from '@xnlc/types' with { 'resolution-mode': 'import' }
+} from '@spot/types' with { 'resolution-mode': 'import' }
 
-// World/screenshot types are defined locally (not imported from @xnlc/types)
+// Updater types are defined locally (same reason as WorldInfo above):
+// preload must compile against any published version of @spot/types.
+// Keep in sync with electron/main/updater.ts and @spot/types ipc-contracts.
+type UpdateChannel = 'stable' | 'beta'
+
+type UpdateErrorCode =
+  | 'GAME_RUNNING'
+  | 'NO_UPDATE'
+  | 'DOWNLOAD_BUSY'
+  | 'INVALID_SETTINGS'
+  | 'NETWORK'
+  | 'UNKNOWN'
+
+type UpdateSettings = {
+  channel: UpdateChannel
+  autoCheck: boolean
+  autoDownload: boolean
+  skipVersion: string | null
+  forced: boolean
+  checkIntervalHours: number
+  feedUrlOverride: string | null
+}
+
+type UpdateInfoPayload = {
+  version: string | null
+  downloaded: boolean
+  currentVersion: string
+  releaseNotes?: string | null
+  releaseDate?: string | null
+  size?: number | null
+  forced: boolean
+  skipVersion: string | null
+  channel: UpdateChannel
+}
+
+type UpdateStatusEvent = {
+  status: string
+  version?: string
+  releaseDate?: string
+  releaseNotes?: string
+  size?: number | null
+  forced?: boolean
+  code?: UpdateErrorCode
+  error?: string
+}
+
+// World/screenshot types are defined locally (not imported from @spot/types)
 // so the preload compiles against any published version of the package.
-// Keep in sync with electron/main/worlds.ts and @xnlc/types domain-types.
+// Keep in sync with electron/main/worlds.ts and @spot/types domain-types.
 type WorldInfo = {
   folder: string
   name: string
@@ -76,7 +122,7 @@ type ScreenshotInfo = {
   path: string
 }
 
-// Server status type is defined locally (not imported from @xnlc/types)
+// Server status type is defined locally (not imported from @spot/types)
 // so the preload compiles against any published version of the package.
 // Keep in sync with electron/main/server-status.ts.
 type ServerStatusResult = {
@@ -131,16 +177,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     interval: number
   }>('auth:elyby-device-start'),
   pollElyByDeviceCode: (deviceCode: string) => ipcRenderer.invoke('auth:elyby-device-poll', deviceCode) as Promise<{ status: "pending"; slowDown?: boolean } | { status: "expired" } | { status: "complete"; account: AuthPayload } | { status: "error"; message: string; retryable?: boolean }>,
-  loginXnSkins: invoke<AuthPayload>('auth:xnskins-login'),
-  startXnSkinsDeviceCode: invoke<{
-    deviceCode: string
-    userCode: string
-    verificationUri: string
-    verificationUriComplete: string
-    expiresIn: number
-    interval: number
-  }>('auth:xnskins-device-start'),
-  pollXnSkinsDeviceCode: (deviceCode: string) => ipcRenderer.invoke('auth:xnskins-device-poll', deviceCode) as Promise<{ status: "pending"; slowDown?: boolean } | { status: "expired" } | { status: "complete"; account: AuthPayload } | { status: "error"; message: string; retryable?: boolean }>,
   loginMicrosoft: invoke<AuthPayload>('auth:microsoft-login'),
   startMicrosoftDeviceCode: invoke<{
     deviceCode: string
@@ -151,11 +187,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
     interval: number
   }>('auth:microsoft-device-start'),
   pollMicrosoftDeviceCode: (deviceCode: string) => ipcRenderer.invoke('auth:microsoft-device-poll', deviceCode) as Promise<{ status: "pending"; slowDown?: boolean } | { status: "expired" } | { status: "complete"; account: AuthPayload } | { status: "error"; message: string; retryable?: boolean }>,
-  refreshMicrosoftToken: (refreshToken: string) => ipcRenderer.invoke('auth:microsoft-refresh', refreshToken) as Promise<AuthPayload>,
+  refreshMicrosoftToken: (refreshToken: string, clientId?: string) => ipcRenderer.invoke('auth:microsoft-refresh', refreshToken, clientId) as Promise<AuthPayload>,
   onAuthProgress: (callback: (msg: string) => void) => {
     const handler = (_: Electron.IpcRendererEvent, msg: string) => callback(msg)
     ipcRenderer.on('auth:progress', handler)
     return () => ipcRenderer.removeListener('auth:progress', handler)
+  },
+  onAccountsUpdated: (callback: (detail: { type?: string }) => void) => {
+    const handler = (_: Electron.IpcRendererEvent, detail: { type?: string }) => callback(detail)
+    ipcRenderer.on('accounts:updated', handler)
+    return () => ipcRenderer.removeListener('accounts:updated', handler)
   },
 
   // ── News ───────────────────────────────────────────────
@@ -186,7 +227,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deleteTrashItem: (trashName: string) => ipcRenderer.invoke('build:delete-trash-item', trashName) as Promise<{ success: boolean; error?: string }>,
   onCliLaunchBuild: (callback: (buildName: string) => void) => subscribe('cli:launch-build', callback),
 
-  // ── Unified Mods API (via xnlc/mods) ──────────────────
+  // ── Unified Mods API (via spot/mods) ──────────────────
   modsModrinthSearch: (query: string, contentType?: ModContentType, gameVersion?: string, modLoader?: ModLoaderFilter, sortBy?: ModSort, page?: number, categories?: string[]) =>
     ipcRenderer.invoke('mods:modrinth-search', query, contentType, gameVersion, modLoader, sortBy, page, categories) as Promise<ModSearchResponse>,
   modsModrinthDetails: (slug: string) => ipcRenderer.invoke('mods:modrinth-details', slug) as Promise<ModDetails | null>,
@@ -256,6 +297,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   writeServersDat: (buildName: string, servers: Array<{ name: string; ip: string }>) => ipcRenderer.invoke('servers:write-dat', buildName, servers) as Promise<{ success: boolean; error?: string }>,
   pingServer: (address: string) => ipcRenderer.invoke('servers:ping', address) as Promise<ServerStatusResult>,
 
+  // ── VPN Detection ──────────────────────────────────────
+  vpnDetect: () => ipcRenderer.invoke('vpn:detect') as Promise<{ vpnDetected: boolean; matches: string[] }>,
+
   // ── Build Intent Operations ────────────────────────────
   getBuildIntentPath: (buildId: string) => ipcRenderer.invoke('build:get-intent-path', buildId) as Promise<string>,
   getInstancesRoot: () => ipcRenderer.invoke('build:get-instances-root') as Promise<string>,
@@ -291,6 +335,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   pickJavaFile: invoke<string | null>('java:pick-file'),
   checkJava: invoke<{ installed: boolean; path?: string; version?: string; label?: string }>('java:check'),
   installJava: invoke<{ success: boolean; path?: string; error?: string }>('java:install'),
+  launchJavaInstaller: invoke<{ success: boolean; error?: string }>('java:launch-installer'),
   onJavaInstallProgress: (callback: (progress: { status: string; percent: number | null; message: string }) => void) => subscribe('java:install-progress', callback),
 
   // ── Worlds ─────────────────────────────────────────────
@@ -372,11 +417,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   quickPlayRemove: (buildName: string | undefined, gameDir: string | undefined, entry: QuickPlayEntry) => ipcRenderer.invoke('quickplay:remove', buildName, gameDir, entry) as Promise<void>,
 
   // ── Updater ─────────────────────────────────────────────
-  updateCheck: invoke<{ available: boolean; version?: string; error?: string }>('update:check'),
-  updateDownload: invoke<{ success: boolean; error?: string }>('update:download'),
+  updateCheck: invoke<{ available: boolean; version?: string; skipped?: boolean; forced?: boolean; code?: UpdateErrorCode; error?: string }>('update:check'),
+  updateDownload: invoke<{ success: boolean; code?: UpdateErrorCode; error?: string }>('update:download'),
   updateInstall: invoke<void>('update:install'),
-  updateInfo: invoke<{ version: string | null; downloaded: boolean }>('update:info'),
-  onUpdateStatus: (callback: (status: { status: string; version?: string; releaseDate?: string; releaseNotes?: string; error?: string }) => void) => subscribe('update:status', callback),
+  updateInfo: invoke<UpdateInfoPayload>('update:info'),
+  updateSettingsGet: invoke<UpdateSettings>('update:settings-get'),
+  updateSettingsSet: (patch: Partial<UpdateSettings>) => ipcRenderer.invoke('update:settings-set', patch) as Promise<UpdateSettings>,
+  updateSkipVersion: (version: string) => ipcRenderer.invoke('update:skip-version', version) as Promise<string | null>,
+  updateDeferVersion: (version: string) => ipcRenderer.invoke('update:defer-version', version) as Promise<boolean>,
+  onUpdateStatus: (callback: (status: UpdateStatusEvent) => void) => subscribe('update:status', callback),
   onUpdateProgress: (callback: (progress: { percent: number; transferred: number; total: number }) => void) => subscribe('update:progress', callback),
 
   // ── Bundled Mods ────────────────────────────────────────

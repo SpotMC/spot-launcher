@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next"
 import { cn } from "@/lib/utils"
 import { SkinCard, type SkinCardData } from "./skin-card"
 import { IconShirt } from "@tabler/icons-react"
-import type { McProfile } from "@xnlc/types"
+import type { McProfile } from "@spot/types"
 
 interface SkinGridProps {
   skins: SkinCardData[]

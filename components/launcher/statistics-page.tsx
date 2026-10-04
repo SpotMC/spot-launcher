@@ -4,7 +4,7 @@ import { IconSearch, IconRefresh, IconExternalLink, IconLoader2, IconChartBar } 
 import { useAccounts } from "@/src/AccountsContext"
 import { PageHeader } from "./page-header"
 
-const STATS_URL = "https://spotmc.ru/statistics"
+const STATS_URL = "https://spotmc.ru/sta"
 
 interface StatsWebview extends HTMLElement {
   executeJavaScript(code: string, userGesture?: boolean): Promise<unknown>

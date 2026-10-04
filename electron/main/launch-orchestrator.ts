@@ -1,12 +1,12 @@
 // ============================================================
-// XNLC — Launch Orchestrator
+// spot — Launch Orchestrator
 // Encapsulates the Minecraft launch worker lifecycle
 // Extracted from minecraft-core.ts
 // ============================================================
 
 import path from "path"
 import { fork, type ChildProcess } from "child_process"
-import type { LoaderType, ResolvedLaunchRequest } from "@xnlc/core" with { "resolution-mode": "import" }
+import type { LoaderType, ResolvedLaunchRequest } from "@spot/core" with { "resolution-mode": "import" }
 import { getMainWindow, sendToRenderer, logRuntime, logRuntimeDebug } from "./runtime"
 import { dbHelpers, type DbAccount } from "../db"
 import { getGameStartTimestamp, setDiscordActivity } from "./discord-rpc"
@@ -14,7 +14,7 @@ import { getBuildIntentPath } from "./builds"
 import { startStatsSession, stopStatsSession } from "./stats-client"
 
 type LaunchAccountPayload = {
-  type: "elyby" | "xnskins" | "microsoft" | "offline"
+  type: "elyby" | "microsoft" | "offline"
   username: string
   uuid?: string
   accessToken?: string
@@ -102,6 +102,21 @@ export class LaunchOrchestrator {
     launchAccount: DbAccount,
     request: ResolvedLaunchRequest & { buildName?: string; buildId?: string; gameDir?: string; quickPlayMultiplayer?: string },
   ): Promise<LaunchResultPayload> {
+    // Перед запуском обновляем Microsoft-сессию, чтобы игра не получила
+    // протухший токен и не ругалась на недействительную сессию.
+    if (launchAccount.type === "microsoft" && launchAccount.refreshToken) {
+      try {
+        const { ensureFreshMicrosoftAccount } = await import("./microsoft-token.js")
+        const refreshed = await ensureFreshMicrosoftAccount(launchAccount)
+        if (refreshed) {
+          launchAccount = refreshed
+          logRuntimeDebug(`[Minecraft] Microsoft session refreshed before launch`)
+        }
+      } catch (error) {
+        logRuntime(`[Minecraft] Failed to refresh Microsoft session before launch: ${error instanceof Error ? error.message : String(error)}`)
+      }
+    }
+
     let gameDir = request.gameDir ?? await getDefaultGameDir()
     if (request.buildName && !request.gameDir) {
       try {
@@ -115,9 +130,9 @@ export class LaunchOrchestrator {
       }
     }
 
-    // RetroAuth-инжектор включаем автоматически для сторонних auth (elyby/xnskins),
+    // RetroAuth-инжектор включаем автоматически для сторонних auth (elyby),
     // чтобы клиент не ходил в настоящий Mojang Yggdrasil (иначе 401 при входе).
-    const retroauthEnabled = launchAccount.type === "xnskins" || launchAccount.type === "elyby"
+    const retroauthEnabled = launchAccount.type === "elyby"
       || (await dbHelpers.getSetting("retroauthInjectorEnabled")) === "true"
     const workerPath = path.join(__dirname, "minecraft-launch-worker.js")
     logRuntimeDebug(`[Minecraft] Starting launch worker path=${workerPath}`)
@@ -150,7 +165,7 @@ export class LaunchOrchestrator {
 
         switch (payload.type) {
           case "worker-debug":
-            this.emitDebug(`[XNLC] ${payload.message ?? ""}`)
+            this.emitDebug(`[spot] ${payload.message ?? ""}`)
             return
           case "progress":
             this.emitToRenderer("minecraft:download-progress", payload.progress)
@@ -231,10 +246,10 @@ export class LaunchOrchestrator {
       }
 
       worker.stdout?.on("data", (chunk: Buffer | string) => {
-        decodeChunk(chunk).then(text => this.emitDebug(`[XNLC] ${text}`))
+        decodeChunk(chunk).then(text => this.emitDebug(`[spot] ${text}`))
       })
       worker.stderr?.on("data", (chunk: Buffer | string) => {
-        decodeChunk(chunk).then(text => this.emitDebug(`[XNLC] ${text}`))
+        decodeChunk(chunk).then(text => this.emitDebug(`[spot] ${text}`))
       })
 
       try {
@@ -299,7 +314,7 @@ export class LaunchOrchestrator {
 // ---------- Module-level helpers ----------
 
 async function getDefaultGameDir(): Promise<string> {
-  const { getDefaultMinecraftRootFromEnv } = await import("@xnlc/core")
+  const { getDefaultMinecraftRootFromEnv } = await import("@spot/core")
   return getDefaultMinecraftRootFromEnv()
 }
 

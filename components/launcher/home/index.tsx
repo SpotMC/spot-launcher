@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { IconDownload, IconLoader2 } from "@tabler/icons-react"
+import { IconDownload, IconLoader2, IconShieldExclamation } from "@tabler/icons-react"
+import { MOD_LOADERS } from "@/lib/home-page-shared"
 import { useAccounts } from "@/src/AccountsContext"
 import { getAvatarUrl } from "@/lib/home-page-shared"
 import { useHomeLaunch } from "@/src/hooks/use-home-launch"
@@ -18,12 +19,13 @@ interface HomePageProps {
 }
 
 const LAST_LAUNCH_KEY = "spotmc-launcher:lastLaunchAt"
+const VPN_WARNING_ACK_KEY = "spotmc-launcher:vpnWarningAcknowledged"
 
 const SPOT_SERVER = { ip: "185.9.145.192", port: 30716 } as const
 
 export function HomePage({ onNavigate }: HomePageProps) {
   const { accounts, activeAccount, setActiveAccount } = useAccounts()
-  const [selectedModLoader] = useState("fabric")
+  const [selectedModLoader, setSelectedModLoader] = useState("fabric")
   const [selectedLoaderVersion, setSelectedLoaderVersion] = useState("")
   const [accountComboOpen, setAccountComboOpen] = useState(false)
   const [query, setQuery] = useState("")
@@ -32,15 +34,15 @@ export function HomePage({ onNavigate }: HomePageProps) {
   const [lastLaunchAt, setLastLaunchAt] = useState<number | null>(() => {
     try { return Number(localStorage.getItem(LAST_LAUNCH_KEY)) || null } catch { return null }
   })
-  const [selectedVersion, setSelectedVersion] = useState("1.21.11")
+  const [showVpnWarning, setShowVpnWarning] = useState(false)
 
-  const { buildIcons } = useHomeVersions("fabric", "1.21.11")
-  const { loaderVersions, loaderVersionsLoaded, recommendedLoaderVersion } = useLoaderVersionOptions("fabric", "1.21.11")
+  const { versions, versionsLoaded, selectedVersion, setSelectedVersion, buildIcons } = useHomeVersions(selectedModLoader, "1.21.11")
+  const { loaderVersions, loaderVersionsLoaded, recommendedLoaderVersion } = useLoaderVersionOptions(selectedModLoader, selectedVersion)
   const account = activeAccount ?? accounts[0]
   const activeAvatarUrl = useMemo(() => account ? getAvatarUrl(account, account.username) : "", [account])
   const accountAvatarUrls = useMemo(() => Object.fromEntries(accounts.map(a => [a.id, getAvatarUrl(a, a.username)])), [accounts])
 
-  const { isRunning, launchUi, launchDetails, handlePlay } = useHomeLaunch({ account, selectedModLoader: "fabric", selectedVersion, selectedLoaderVersion })
+  const { isRunning, launchUi, launchDetails, handlePlay } = useHomeLaunch({ account, selectedModLoader, selectedVersion, selectedLoaderVersion })
 
   const [installedModCount, setInstalledModCount] = useState(0)
   const [memoryMax, setMemoryMax] = useState("4G")
@@ -104,9 +106,34 @@ export function HomePage({ onNavigate }: HomePageProps) {
     return () => { cancelled = true }
   }, [])
 
-  const handleQuickJoin = useCallback(() => {
+  const runQuickJoin = useCallback(() => {
     void handlePlay({ ip: SPOT_SERVER.ip, port: SPOT_SERVER.port })
   }, [handlePlay])
+
+  const handleQuickJoin = useCallback(() => {
+    void (async () => {
+      try {
+        if (window.electronAPI?.vpnDetect) {
+          const result = await window.electronAPI.vpnDetect()
+          let acknowledged = false
+          try { acknowledged = localStorage.getItem(VPN_WARNING_ACK_KEY) === "1" } catch {}
+          if (result?.vpnDetected && !acknowledged) {
+            setShowVpnWarning(true)
+            return
+          }
+        }
+      } catch {
+        // если VPN-детект недоступен — просто запускаем
+      }
+      runQuickJoin()
+    })()
+  }, [runQuickJoin])
+
+  const confirmVpnWarning = useCallback(() => {
+    try { localStorage.setItem(VPN_WARNING_ACK_KEY, "1") } catch {}
+    setShowVpnWarning(false)
+    runQuickJoin()
+  }, [runQuickJoin])
 
   const handlePlayAndStamp = useCallback(() => {
     void handlePlay()
@@ -340,13 +367,13 @@ export function HomePage({ onNavigate }: HomePageProps) {
               accountComboOpen={accountComboOpen}
               setAccountComboOpen={setAccountComboOpen}
               setActiveAccount={setActiveAccount}
-              versions={["1.21.11"]}
-              versionsLoaded={true}
-              selectedVersion="1.21.11"
-              setSelectedVersion={() => {}}
+              versions={versions}
+              versionsLoaded={versionsLoaded}
+              selectedVersion={selectedVersion}
+              setSelectedVersion={setSelectedVersion}
               buildIcons={buildIcons}
-              selectedModLoader="fabric"
-              setSelectedModLoader={() => {}}
+              selectedModLoader={selectedModLoader}
+              setSelectedModLoader={setSelectedModLoader}
               loaderVersions={loaderVersions}
               loaderVersionsLoaded={loaderVersionsLoaded}
               selectedLoaderVersion={selectedLoaderVersion}
@@ -361,6 +388,32 @@ export function HomePage({ onNavigate }: HomePageProps) {
           </div>
         </div>
       </aside>
+
+      {showVpnWarning && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/70 px-4" onClick={() => setShowVpnWarning(false)}>
+          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#131418] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-amber-500/25 bg-amber-500/15">
+                <IconShieldExclamation className="h-5 w-5 text-amber-400" />
+              </div>
+              <div>
+                <h3 className="text-[15px] font-semibold text-white">Внимание: включён VPN</h3>
+                <p className="mt-1 text-[12px] leading-relaxed text-white/50">
+                  Сервер Spot может не работать при включённом VPN. Выключите VPN для стабильного подключения.
+                </p>
+              </div>
+            </div>
+            <div className="mt-5 flex gap-2.5">
+              <button onClick={() => setShowVpnWarning(false)} className="flex-1 rounded-xl border border-white/10 bg-white/[0.04] py-2.5 text-[12px] font-medium text-white/70 transition-colors hover:bg-white/[0.08] hover:text-white">
+                Хорошо, выключу
+              </button>
+              <button onClick={confirmVpnWarning} className="flex-1 rounded-xl bg-[#5a6ff2] py-2.5 text-[12px] font-medium text-white transition-colors hover:bg-[#6c7ff6]">
+                Всё равно запустить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

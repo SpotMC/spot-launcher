@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 
 export interface Account {
   id: string
-  type: 'elyby' | 'xnskins' | 'microsoft' | 'offline'
+  type: 'elyby' | 'microsoft' | 'offline'
   username: string
   isActive: boolean
   uuid?: string
@@ -16,7 +16,7 @@ export interface Account {
 const FALLBACK: Account[] = []
 
 async function fetchAccounts(): Promise<Account[]> {
-  const validAccountTypes = ['elyby', 'xnskins', 'microsoft', 'offline'] as const
+  const validAccountTypes = ['elyby', 'microsoft', 'offline'] as const
   const isValidType = (t: string): t is typeof validAccountTypes[number] =>
     validAccountTypes.includes(t as typeof validAccountTypes[number])
 
@@ -35,7 +35,7 @@ async function fetchAccounts(): Promise<Account[]> {
     }
   } catch {}
   try {
-    const raw = localStorage.getItem('xneon-launcher:accounts')
+    const raw = localStorage.getItem('spot-launcher:accounts') || localStorage.getItem('spot-launcher:accounts')
     if (raw) {
       const parsed = JSON.parse(raw) as Account[]
       const validAccounts = parsed.filter(a => isValidType(a.type))
@@ -80,6 +80,14 @@ export function AccountsProvider({ children }: PropsWithChildren) {
     }
     window.addEventListener("cloud:imported", handler)
     return () => window.removeEventListener("cloud:imported", handler)
+  }, [])
+
+  useEffect(() => {
+    if (!window.electronAPI?.onAccountsUpdated) return
+    const cleanup = window.electronAPI.onAccountsUpdated(() => {
+      void fetchAccounts().then(setAccounts)
+    })
+    return cleanup
   }, [])
 
   useEffect(() => {

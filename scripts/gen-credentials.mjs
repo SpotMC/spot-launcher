@@ -36,7 +36,6 @@ const creds = {
   yandex: { clientId: read("YANDEX_CLIENT_ID") },
   onedrive: { clientId: read("ONEDRIVE_CLIENT_ID") },
   elyby: { clientId: read("ELY_CLIENT_ID"), clientSecret: read("ELY_CLIENT_SECRET"), deviceClientId: read("ELY_DEVICE_CLIENT_ID") },
-  xnskins: { clientId: read("XN_CLIENT_ID"), clientSecret: read("XN_CLIENT_SECRET") },
   microsoft: { clientId: read("MICROSOFT_CLIENT_ID") },
   microsoftDevice: { clientId: read("MICROSOFT_DEVICE_CLIENT_ID") },
 }

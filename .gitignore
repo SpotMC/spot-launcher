@@ -38,7 +38,7 @@ electron/main/cloud/credentials.generated.ts
 
 # Cache
 .codex/
-.xneonlauncher/
+.spotlauncher/
 *.tsbuildinfo
 tsconfig.tsbuildinfo
 .cache
@@ -70,6 +70,17 @@ all-icons_old_no_delete_noedit.json
 
 # Electron builder output artifacts
 *.blockmap
+
+# Bundled JDK installers (large binaries, fetched per-platform at build time)
+jdk-*.exe
+jdk-*.pkg
+jdk-*.tar.gz
+
+# Site deployment archives (source of truth is site/ itself)
+site/site.rar
+
+# Stale scripts referencing removed deps (prismarine-nbt)
+server-pin.js
 
 # npm pack artifacts
 packages/*/*.tgz

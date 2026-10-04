@@ -10,7 +10,7 @@ import { callbackSuccessPage, callbackErrorPage } from "../callback-page"
 import { getCloudCredentials } from "../credentials"
 import { generatePkcePair } from "../pkce"
 import { dbHelpers } from "../../../db"
-import { fetchWithRetry } from "@xnlc/core/retry"
+import { fetchWithRetry } from "@spot/core/retry"
 
 const credentials = getCloudCredentials()
 const GOOGLE_CLIENT_ID = credentials.googleDrive.clientId
@@ -279,7 +279,7 @@ export class GoogleDriveProvider implements CloudProvider {
         parentId = await createFolderIfNotExists(token, part, parentId)
       }
       const metadata = { name: fileName, parents: [parentId] }
-      const boundary = `----XneonBoundary${Date.now()}`
+      const boundary = `----spotBoundary${Date.now()}`
       const prefix = Buffer.from(`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n--${boundary}\r\nContent-Type: application/octet-stream\r\n\r\n`)
       const suffix = Buffer.from(`\r\n--${boundary}--\r\n`)
       const totalBytes = prefix.length + fileStats.size + suffix.length

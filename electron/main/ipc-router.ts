@@ -1,26 +1,26 @@
 // ============================================================
-// XNLC — Declarative IPC Router
+// spot — Declarative IPC Router
 // Replaces manual ipcMain.handle boilerplate with a declarative
 // registration system.
 // ============================================================
 
 import { ipcMain } from "electron"
 import { callHandler, getHandler } from "./minecraft-core"
-import type { XnlcHandler } from "@xnlc/core" with { "resolution-mode": "import" }
+import type { SpotHandler } from "@spot/core" with { "resolution-mode": "import" }
 
 /**
- * A handler definition that uses the XnlcHandler context.
+ * A handler definition that uses the SpotHandler context.
  * Errors are caught and the fallback is returned.
  */
 export type ContextHandlerDef<TResult> = {
   channel: string
   label: string
   fallback: TResult
-  handler: (ctx: XnlcHandler, ...args: unknown[]) => Promise<TResult>
+  handler: (ctx: SpotHandler, ...args: unknown[]) => Promise<TResult>
 }
 
 /**
- * A raw handler definition that doesn't need XnlcHandler context.
+ * A raw handler definition that doesn't need SpotHandler context.
  * Errors propagate to the caller (rejected promise).
  */
 export type RawHandlerDef<TResult> = {
@@ -61,13 +61,13 @@ export function ctxHandler<TResult>(
   channel: string,
   label: string,
   fallback: TResult,
-  handler: (ctx: XnlcHandler, ...args: unknown[]) => Promise<TResult>,
+  handler: (ctx: SpotHandler, ...args: unknown[]) => Promise<TResult>,
 ): IpcHandlerDef {
   return { type: "context", def: { channel, label, fallback, handler } }
 }
 
 /**
- * Helper to create a raw handler definition (no XnlcHandler context).
+ * Helper to create a raw handler definition (no SpotHandler context).
  */
 export function rawHandler<TResult>(
   channel: string,

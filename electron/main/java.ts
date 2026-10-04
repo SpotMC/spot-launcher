@@ -78,7 +78,7 @@ export async function installJava(): Promise<{ success: boolean; path?: string; 
   const arch = process.arch === "arm64" ? "aarch64" : process.arch === "ia32" ? "x86" : "x64"
 
   const downloadUrl = `https://api.adoptium.net/v3/binary/latest/${JAVA_MAJOR}/ga/${osName}/${arch}/jre/hotspot/normal/eclipse`
-  const tempZip = path.join(runtimeDir, `jre-${JAVA_MAJOR}.zip`)
+  const tempArchive = path.join(runtimeDir, `jre-${JAVA_MAJOR}.archive`)
 
   await fs.mkdir(runtimeDir, { recursive: true })
 
@@ -131,7 +131,7 @@ export async function installJava(): Promise<{ success: boolean; path?: string; 
   }
 
   try {
-    await downloadWithRetry(downloadUrl, tempZip)
+    await downloadWithRetry(downloadUrl, tempArchive)
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Не удалось скачать Java" }
   }
@@ -140,14 +140,12 @@ export async function installJava(): Promise<{ success: boolean; path?: string; 
 
   try {
     await fs.mkdir(majorDir, { recursive: true })
-    const AdmZip = (await import("adm-zip")).default
-    const zip = new AdmZip(tempZip)
-    zip.extractAllTo(majorDir, true)
+    await extractArchive(tempArchive, majorDir)
   } catch (e) {
-    await fs.unlink(tempZip).catch(() => {})
+    await fs.unlink(tempArchive).catch(() => {})
     return { success: false, error: e instanceof Error ? e.message : "Ошибка при распаковке Java" }
   } finally {
-    await fs.unlink(tempZip).catch(() => {})
+    await fs.unlink(tempArchive).catch(() => {})
   }
 
   const javaPath = await findJavaExecutable(majorDir)
@@ -155,9 +153,45 @@ export async function installJava(): Promise<{ success: boolean; path?: string; 
     return { success: false, error: "Java установлена, но не найден исполняемый файл" }
   }
 
+  // На macOS/Linux извлечённый бинарь может прийти без execute-бита.
+  if (process.platform !== "win32") {
+    await fs.chmod(javaPath, 0o755).catch(() => {})
+  }
+
   await dbHelpers.setSetting("javaPath", javaPath)
   sendInstallProgress({ status: "done", percent: 100, message: "Java установлена" })
   return { success: true, path: javaPath }
+}
+
+// Определяем формат архива по сигнатуре, а не по расширению: Adoptium отдаёт
+// .zip для Windows и .tar.gz для macOS/Linux.
+async function detectArchiveFormat(filePath: string): Promise<"zip" | "targz" | "unknown"> {
+  const handle = await fs.open(filePath, "r")
+  try {
+    const buf = Buffer.alloc(4)
+    const { bytesRead } = await handle.read(buf, 0, 4, 0)
+    if (bytesRead < 2) return "unknown"
+    if (buf[0] === 0x50 && buf[1] === 0x4b) return "zip"
+    if (buf[0] === 0x1f && buf[1] === 0x8b) return "targz"
+    return "unknown"
+  } finally {
+    await handle.close()
+  }
+}
+
+async function extractArchive(archivePath: string, destDir: string): Promise<void> {
+  const format = await detectArchiveFormat(archivePath)
+  if (format === "zip") {
+    const AdmZip = (await import("adm-zip")).default
+    new AdmZip(archivePath).extractAllTo(destDir, true)
+    return
+  }
+  if (format === "targz") {
+    const tar = await import("tar")
+    await tar.x({ file: archivePath, cwd: destDir, preserveOwner: false })
+    return
+  }
+  throw new Error("Неизвестный формат архива Java")
 }
 
 export function registerJavaHandlers() {
@@ -171,5 +205,12 @@ export function registerJavaHandlers() {
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : "Ошибка установки Java" }
     }
+  })
+
+ipcMain.handle("java:launch-installer", async (): Promise<{ success: boolean; error?: string }> => {
+    // Встроенный GUI-установщик в сборку не входит: на всех платформах Java
+    // ставится автоматически через Adoptium API (installJava), который
+    // разбирает и zip, и tar.gz. Канал не вызывается — оставлен для совместимости.
+    return { success: false, error: "Используется автоматическая установка Java" }
   })
 }

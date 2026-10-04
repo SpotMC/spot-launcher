@@ -82,9 +82,7 @@ export function useHomeVersions(selectedModLoader: string, initialVersion?: stri
         if (!cached) {
           supportedVersionsCacheRef.current.set(selectedModLoader, supported)
         }
-        const filtered = visibleVersions.filter((version) =>
-          selectedModLoader === "vanilla" || supported.includes(version)
-        )
+        const filtered = allMinecraftVersions.map((version) => version.version)
 
         if (cancelled) return
         setVersions(filtered)

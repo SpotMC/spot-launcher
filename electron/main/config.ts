@@ -7,18 +7,6 @@ export async function getCloudApiUrl(): Promise<string> {
   return process.env.CLOUD_API_URL || "http://87.121.82.248:3001/api"
 }
 
-export async function getXnClientId(): Promise<string> {
-  const stored = await dbHelpers.getSetting("xnClientId")
-  if (stored) return stored
-  return getCloudCredentials().xnskins.clientId
-}
-
-export async function getXnClientSecret(): Promise<string> {
-  const stored = await dbHelpers.getSetting("xnClientSecret")
-  if (stored) return stored
-  return getCloudCredentials().xnskins.clientSecret
-}
-
 export async function getElyClientId(): Promise<string> {
   const stored = await dbHelpers.getSetting("elyClientId")
   if (stored) return stored
@@ -34,7 +22,7 @@ export async function getElyClientSecret(): Promise<string> {
 export async function getElyDeviceClientId(): Promise<string> {
   const stored = await dbHelpers.getSetting("elyDeviceClientId")
   if (stored) return stored
-  return getCloudCredentials().elyby.deviceClientId || "xneon-launcher"
+  return getCloudCredentials().elyby.deviceClientId || "spot-launcher"
 }
 
 const MC_MSA_CLIENT_ID = "00000000402b5328"

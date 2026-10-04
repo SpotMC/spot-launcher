@@ -16,19 +16,19 @@ if (isProtonWindows) {
 }
 
 export const isDev = !app.isPackaged || process.env.NODE_ENV === "development"
-const isVerboseRuntimeLogging = process.env.XN_VERBOSE_LOGS === "true"
+const isVerboseRuntimeLogging = process.env.SPOT_VERBOSE_LOGS === "true"
 export { ensureRuntimeDir, ensureRuntimeTempDir }
 
-// Shared disk-cache locations set before any XNLC handler / launch worker runs;
+// Shared disk-cache locations set before any spot handler / launch worker runs;
 // the worker inherits them via `env: process.env` in launch-orchestrator.ts.
 try {
   const baseDataRoot = process.platform === "win32"
     ? path.join(app.getPath("appData"), "spotlauncher")
     : process.platform === "darwin"
       ? path.join(app.getPath("home"), "Library", "Application Support", "spotlauncher")
-      : path.join(app.getPath("home"), ".xneonlauncher")
-  process.env.XNLC_META_CACHE_DIR ??= path.join(baseDataRoot, "cache", "meta")
-  process.env.XNEON_SHARED_MC_DIR ??= path.join(baseDataRoot, "shared-minecraft")
+      : path.join(app.getPath("home"), ".spotlauncher")
+  process.env.SPOT_META_CACHE_DIR ??= path.join(baseDataRoot, "cache", "meta")
+  process.env.SPOT_SHARED_MC_DIR ??= path.join(baseDataRoot, "shared-minecraft")
 } catch {
   // ignore if app paths are not ready yet
 }

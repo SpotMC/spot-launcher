@@ -1,6 +1,6 @@
 import path from "path"
 import fs from "fs/promises"
-import type { QuickPlayEntry } from "@xnlc/types" with { "resolution-mode": "import" }
+import type { QuickPlayEntry } from "@spot/types" with { "resolution-mode": "import" }
 import { registerIpcHandlers, rawHandler } from "./ipc-router"
 import { logRuntimeDebug } from "./runtime"
 import { getBuildIntentPath } from "./builds"

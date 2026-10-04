@@ -12,7 +12,7 @@ import { Spinner } from "./spinner"
 import { Pagination } from "./pagination"
 import { formatDownloads, matchesBuildVersion } from "./utils"
 import type { Build, BuildMod, ModSearchResult, ModSort, SearchSource, ModVersion } from "./types"
-import type { ModCategory } from "@xnlc/types"
+import type { ModCategory } from "@spot/types"
 import type { SelectedModCategory } from "./use-mod-search"
 import { SORT_LABELS, SORT_OPTIONS_BY_SOURCE } from "./sort-options"
 

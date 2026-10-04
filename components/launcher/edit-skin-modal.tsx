@@ -7,7 +7,7 @@ import { localFileToBlobUrl } from "@/lib/local-file-url"
 import {
   IconUpload, IconLoader2, IconX, IconCheck, IconShirt,
 } from "@tabler/icons-react"
-import type { McProfile, LibrarySkin } from "@xnlc/types"
+import type { McProfile, LibrarySkin } from "@spot/types"
 
 interface EditSkinModalProps {
   open: boolean

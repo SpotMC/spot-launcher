@@ -1,7 +1,8 @@
+import { useEffect, useState } from "react"
 import { createPortal } from "react-dom"
 import { useTranslation } from "react-i18next"
 import { cn } from "@/lib/utils"
-import { IconCheck, IconFolderPlus, IconLoader2, IconX } from "@tabler/icons-react"
+import { IconCheck, IconDownload, IconFolderPlus, IconLoader2, IconX } from "@tabler/icons-react"
 import type { JavaInstallation } from "./types"
 
 interface SettingsJavaProps {
@@ -40,8 +41,67 @@ export function SettingsJava({
   onPickJavaFile,
 }: SettingsJavaProps) {
   const { t } = useTranslation()
+  const [javaDownloading, setJavaDownloading] = useState(false)
+  const [javaDownloadProgress, setJavaDownloadProgress] = useState<{ status: string; percent: number | null; message: string } | null>(null)
+  const [javaDownloadError, setJavaDownloadError] = useState("")
+
+  useEffect(() => {
+    return window.electronAPI?.onJavaInstallProgress((progress) => {
+      setJavaDownloadProgress(progress)
+      if (progress.status === "done") setJavaDownloading(false)
+      if (progress.status === "error") { setJavaDownloading(false); setJavaDownloadError(progress.message) }
+    })
+  }, [])
+
   return (
     <>
+      <button
+        type="button"
+        disabled={javaDownloading}
+        onClick={() => {
+          setJavaDownloading(true)
+          setJavaDownloadProgress(null)
+          setJavaDownloadError("")
+          void window.electronAPI?.installJava().then((res) => {
+            if (res.success && res.path) {
+              setSelectedJavaPath(res.path)
+              void window.electronAPI?.setSetting("javaPath", res.path)
+              setJavaDownloading(false)
+            } else if (!res.success) {
+              setJavaDownloading(false)
+              setJavaDownloadError(res.error || t("settings.java.downloadError"))
+            }
+          })
+        }}
+        className="w-full p-4 rounded-xl border border-dashed border-border bg-muted/20 hover:border-accent hover:bg-accent/5 transition-all duration-200 flex items-center justify-center gap-2 text-muted-foreground hover:text-accent disabled:opacity-60 disabled:pointer-events-none"
+      >
+        <IconDownload className="w-5 h-5" strokeWidth={1.5} />
+        {javaDownloading ? t("settings.java.downloading") : t("settings.java.download")}
+      </button>
+
+      {javaDownloading && javaDownloadProgress && (
+        <div className="p-3 rounded-xl border border-border bg-muted/30 space-y-2">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span className="flex items-center gap-2">
+              <IconLoader2 className="w-4 h-4 animate-spin text-primary" strokeWidth={1.5} />
+              {javaDownloadProgress.message || t("settings.java.downloading")}
+            </span>
+            {javaDownloadProgress.percent != null && <span className="font-medium text-foreground">{Math.round(javaDownloadProgress.percent)}%</span>}
+          </div>
+          {javaDownloadProgress.percent != null && (
+            <div className="h-1.5 rounded-full bg-muted/70 overflow-hidden">
+              <div className="h-full rounded-full bg-primary transition-all duration-300" style={{ width: `${Math.min(100, javaDownloadProgress.percent)}%` }} />
+            </div>
+          )}
+        </div>
+      )}
+
+      {javaDownloadError && (
+        <div className="p-3 rounded-xl border border-destructive/30 bg-destructive/10 text-xs text-destructive">
+          {javaDownloadError}
+        </div>
+      )}
+
       <div className="space-y-3">
         {autoVersions.map((java) => (
           <button

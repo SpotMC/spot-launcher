@@ -9,9 +9,22 @@
 import { ipcMain } from "electron"
 import fs from "fs"
 import path from "path"
-import { NBTReader, NBTWriter } from "@xnlc/nbt"
+import { NBTReader, NBTWriter } from "@spot/nbt"
 import { getBuildIntentPath } from "./builds/helpers"
 import { pingServer } from "./server-status"
+
+// Официальный сервер Spot закрепляется на уровне main: его нельзя удалить
+// из servers.dat никаким кодом renderer'а, и он всегда возвращается в списке.
+const SPOT_SERVER = { name: "SpotMC", ip: "185.9.145.192:30716" } as const
+
+function isSpotServerIp(ip: string): boolean {
+  return String(ip ?? "").split(":")[0] === SPOT_SERVER.ip.split(":")[0]
+}
+
+function pinSpotServer(servers: Array<{ name: string; ip: string }>): Array<{ name: string; ip: string }> {
+  const rest = servers.filter((s) => !isSpotServerIp(s.ip))
+  return [{ name: SPOT_SERVER.name, ip: SPOT_SERVER.ip }, ...rest]
+}
 
 function readServersDat(datPath: string): any {
   const data = fs.readFileSync(datPath)
@@ -32,12 +45,13 @@ export function registerServerHandlers() {
       const nbt = readServersDat(datPath)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const servers = (nbt as any).servers
-      if (!servers?.values) return []
+      if (!servers?.values) return [{ name: SPOT_SERVER.name, ip: SPOT_SERVER.ip }]
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return servers.values.map((s: any) => ({
+      const list = servers.values.map((s: any) => ({
         name: String(s.name ?? ""),
         ip: String(s.ip ?? ""),
       }))
+      return pinSpotServer(list)
     } catch {
       return []
     }
@@ -64,7 +78,7 @@ export function registerServerHandlers() {
           nbt = { servers: { type: 10, values: [] } }
         }
 
-        nbt.servers.values = servers.map((s) => ({
+        nbt.servers.values = pinSpotServer(servers).map((s) => ({
           name: s.name,
           ip: s.ip,
           hidden: 0,

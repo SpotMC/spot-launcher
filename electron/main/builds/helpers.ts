@@ -4,12 +4,12 @@ import fs from "fs/promises"
 import { sendToRenderer } from "../runtime"
 import { dbHelpers } from "../../db"
 import { ensureSharedGameLinksSync } from "../shared-game-cache"
-import { fetchWithRetry } from "@xnlc/core/retry"
+import { fetchWithRetry } from "@spot/core/retry"
 
 export function getBaseDataRoot(): string {
   if (process.platform === "win32") return path.join(app.getPath("appData"), "spotlauncher")
   if (process.platform === "darwin") return path.join(app.getPath("home"), "Library", "Application Support", "spotlauncher")
-  return path.join(app.getPath("home"), ".xneonlauncher")
+  return path.join(app.getPath("home"), ".spotlauncher")
 }
 
 let cachedInstancesRoot: string | null = null
@@ -116,7 +116,8 @@ export async function saveRemoteContentToIntent(dirName: string, contentType: "m
     const filePath = path.join(targetDir, safeFileName)
     await fs.writeFile(filePath, await downloadBuffer(url, undefined, safeFileName))
     return filePath
-  } catch {
+  } catch (error) {
+    console.error(`[builds] Failed to save remote content "${fileName}" to "${dirName}":`, error)
     return null
   }
 }
@@ -131,7 +132,8 @@ export async function saveLocalContentToIntent(dirName: string, contentType: "mo
       await fs.copyFile(localFilePath, destPath)
     }
     return destPath
-  } catch {
+  } catch (error) {
+    console.error(`[builds] Failed to save local content "${localFilePath}" to "${dirName}":`, error)
     return null
   }
 }
@@ -360,12 +362,12 @@ export function loadToml(): Promise<{ parse(input: string): Record<string, unkno
 let modsModulePromise: Promise<ModsModule> | null = null
 export function loadModsModule(): Promise<ModsModule> {
   if (!modsModulePromise) {
-    modsModulePromise = import("@xnlc/mods")
+    modsModulePromise = import("@spot/mods")
   }
   return modsModulePromise
 }
 
-import type * as ModsApi from "@xnlc/mods" with { "resolution-mode": "import" }
+import type * as ModsApi from "@spot/mods" with { "resolution-mode": "import" }
 type ModsModule = typeof ModsApi
 export type { ModsModule }
 

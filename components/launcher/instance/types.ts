@@ -61,7 +61,7 @@ export type BuildMod = {
   enabled?: boolean
 }
 
-// -- Unified Mod Types (aligned with xnlc/mods) --
+// -- Unified Mod Types (aligned with spot/mods) --
 
 export type ModSearchResult = {
   id: string

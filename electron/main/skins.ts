@@ -3,9 +3,9 @@ import fs from "fs/promises"
 import path from "path"
 import crypto from "crypto"
 import { dbHelpers } from "../db"
-import { fetchWithRetry } from "@xnlc/core/retry"
+import { fetchWithRetry } from "@spot/core/retry"
 import { getMicrosoftDeviceClientId } from "./config"
-import type { LibrarySkin } from "@xnlc/types"
+import type { LibrarySkin } from "@spot/types"
 
 const MC_PROFILE_URL = "https://api.minecraftservices.com/minecraft/profile"
 const MC_LAUNCHER_LOGIN_URL = "https://api.minecraftservices.com/launcher/login"
@@ -122,7 +122,7 @@ export function registerSkinsHandlers() {
     }
 
     try {
-      if (account.type === "microsoft" || account.type === "xnskins") {
+      if (account.type === "microsoft") {
         let res = await fetchWithRetry(MC_PROFILE_URL, {
           headers: { Authorization: `Bearer ${accessToken}` },
         })

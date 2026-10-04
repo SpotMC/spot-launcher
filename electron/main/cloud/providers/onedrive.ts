@@ -8,7 +8,7 @@ import { callbackSuccessPage, callbackErrorPage } from "../callback-page"
 import { getCloudCredentials } from "../credentials"
 import { generatePkcePair } from "../pkce"
 import { dbHelpers } from "../../../db"
-import { fetchWithRetry } from "@xnlc/core/retry"
+import { fetchWithRetry } from "@spot/core/retry"
 
 const REDIRECT_PORT = 18936
 const REDIRECT_URI = `http://localhost:${REDIRECT_PORT}`

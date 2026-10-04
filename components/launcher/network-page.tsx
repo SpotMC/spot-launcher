@@ -13,7 +13,7 @@ import {
 } from "@tabler/icons-react"
 import type {
   P2PRoom, P2PRoomMember, P2PConnState, P2PLogEntry, P2PChatMessage,
-} from "@xnlc/types"
+} from "@spot/types"
 import { NetworkAuthModal, NetworkCreateModal, NetworkJoinModal } from "./network-modals"
 import { useAccounts } from "@/src/AccountsContext"
 import { getAvatarUrl } from "@/lib/home-page-shared"

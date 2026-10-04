@@ -2,6 +2,7 @@ import { useCallback, useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import type { Account } from "@/src/AccountsContext"
 import { useLaunchControls } from "@/src/LaunchLogsContext"
+import { resolveLaunchErrorMessage } from "@/lib/launch-error"
 import { useBuildLaunch, saveLastLaunchedPrefs, formatLoaderLabel, normalizeJavaPath, loadLaunchSettings, resolveLaunchDimensions } from "@/src/hooks/use-build-launch"
 
 type UseHomeLaunchParams = {
@@ -21,7 +22,7 @@ export function useHomeLaunch({ account, selectedVersion, selectedModLoader, sel
 
     const activeVersion = versionOverride || selectedVersion
     const activeLoader = loaderOverride || selectedModLoader
-    const usesSkinInjector = account.type === "xnskins" || account.type === "elyby"
+    const usesSkinInjector = account.type === "elyby"
     const normalizedJavaPath = normalizeJavaPath(await window.electronAPI.getSetting("javaPath"))
     const settings = await loadLaunchSettings()
     const { width, height } = resolveLaunchDimensions(settings)
@@ -57,10 +58,11 @@ export function useHomeLaunch({ account, selectedVersion, selectedModLoader, sel
       ...(server.trim() ? { quickPlayMultiplayer: `${server.trim()}:${serverPort.trim() || "25565"}` } : {}),
     })
 
+    const launchError = resolveLaunchErrorMessage(result.error, t, "Ошибка запуска")
     patchLaunchUi(result.success
       ? { isLaunching: false, phase: "idle", progress: 100, status: t("launcherStatus.running") }
-      : { isLaunching: false, status: result.error ?? "Ошибка запуска" })
-    if (!result.success) addLog(`[Лаунчер] ${result.error ?? "Ошибка запуска"}`, "error")
+      : { isLaunching: false, status: launchError })
+    if (!result.success) addLog(`[Лаунчер] ${launchError}`, "error")
     if (result.success) {
       setIsRunning(true)
       saveLastLaunchedPrefs(activeVersion, selectedModLoader, selectedLoaderVersion)

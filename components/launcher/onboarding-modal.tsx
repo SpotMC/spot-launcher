@@ -34,7 +34,7 @@ function getAvatarUrl(account: { uuid?: string; type?: string }, username: strin
   const isElyBy = account.type === "elyby"
   const value = isElyBy ? username : (account.uuid || username)
   const params = new URLSearchParams()
-  const skinTypes: Record<string, string> = { elyby: "ely", xnskins: "xneon", microsoft: "microsoft" }
+  const skinTypes: Record<string, string> = { elyby: "ely", microsoft: "microsoft" }
   const skinType = skinTypes[account.type || ""]
   if (skinType) params.set("skin_type", skinType)
   if (account.type === "offline") return "https://mcskinapi-three.vercel.app/avatar/Steve?skin_type=microsoft"
@@ -59,7 +59,6 @@ export function OnboardingModal({ selectedTheme, onSelectTheme, onFinish, onSkip
   const [activeFilter, setActiveFilter] = useState<string | null>(null)
   const [importedCount, setImportedCount] = useState(0)
   const [elyByLoading, setElyByLoading] = useState(false)
-  const [xnSkinsLoading, setXnSkinsLoading] = useState(false)
   const [microsoftLoading, setMicrosoftLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
@@ -100,7 +99,7 @@ export function OnboardingModal({ selectedTheme, onSelectTheme, onFinish, onSkip
 
   const copy = ONBOARDING_COPY[selectedLanguage] ?? ONBOARDING_COPY.en
   const steps = copy.steps
-  const anyLoginLoading = elyByLoading || xnSkinsLoading || microsoftLoading
+  const anyLoginLoading = elyByLoading || microsoftLoading
   const isLastStep = stepIndex === steps.length - 1
   const currentStep = steps[stepIndex]
   const STEP_ICONS = [IconRocket, IconRocket, IconRocket, IconRocket, IconPuzzle, IconRocket]
@@ -134,10 +133,10 @@ export function OnboardingModal({ selectedTheme, onSelectTheme, onFinish, onSkip
     setError("")
   }
 
-  const handleProviderLogin = async (provider: "elyby" | "xnskins" | "microsoft") => {
+  const handleProviderLogin = async (provider: "elyby" | "microsoft") => {
     setError("")
-    const loadingSetters = { elyby: setElyByLoading, xnskins: setXnSkinsLoading, microsoft: setMicrosoftLoading }
-    const loginFns = { elyby: "loginElyBy", xnskins: "loginXnSkins", microsoft: "loginMicrosoft" } as const
+    const loadingSetters = { elyby: setElyByLoading, microsoft: setMicrosoftLoading }
+    const loginFns = { elyby: "loginElyBy", microsoft: "loginMicrosoft" } as const
     loadingSetters[provider](true)
     try {
       const result = await (window.electronAPI as any)?.[loginFns[provider]]()

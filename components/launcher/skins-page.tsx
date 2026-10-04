@@ -6,7 +6,7 @@ import { EditSkinModal } from "./edit-skin-modal"
 import { localFileToBlobUrl } from "@/lib/local-file-url"
 import { EmptySkinsState, SkinPreviewPanel, SkinGrid } from "./skins"
 import type { SkinCardData } from "./skins"
-import type { McProfile, LibrarySkin } from "@xnlc/types"
+import type { McProfile, LibrarySkin } from "@spot/types"
 import { IconShirt, IconLoader2 } from "@tabler/icons-react"
 
 export function SkinsPage() {

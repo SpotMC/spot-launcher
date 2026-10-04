@@ -2,12 +2,12 @@ import { ipcMain, app } from "electron"
 import axios from "axios"
 import { dbHelpers } from "../../db"
 import { sendToRenderer } from "../runtime"
-import type { P2PClient as P2PClientType } from "@xnlc/p2p" with { "resolution-mode": "import" }
-import type { P2PRole, P2PRoom, P2PRoomMember, P2PConnState } from "@xnlc/types" with { "resolution-mode": "import" }
+import type { P2PClient as P2PClientType } from "@spot/p2p" with { "resolution-mode": "import" }
+import type { P2PRole, P2PRoom, P2PRoomMember, P2PConnState } from "@spot/types" with { "resolution-mode": "import" }
 
 const TOKEN_KEY = "p2p_token"
 async function getP2pModule() {
-  return import("@xnlc/p2p")
+  return import("@spot/p2p")
 }
 
 async function httpHost(): Promise<string> {
@@ -263,7 +263,7 @@ export function registerP2PHandlers(): void {
     runtimeState = { state: "connecting", role, groupName, playerName, groupId }
     setState("connecting")
 
-    const { P2PClient } = await import("@xnlc/p2p")
+    const { P2PClient } = await import("@spot/p2p")
     clientInstance = new P2PClient(
       sigHost, httpBase, groupId, playerName, clientUuid, token, role === "host",
       (event, data) => {

@@ -1,6 +1,6 @@
 try { require("dotenv/config") } catch {}
 import "./auth"
-import { autoRefreshMicrosoftAccounts } from "./auth"
+import { autoRefreshMicrosoftAccounts } from "./microsoft-token"
 import "./discord-rpc"
 
 import { registerModsHandlers } from "./mods"
@@ -12,6 +12,7 @@ import { registerWindowLifecycle } from "./window"
 import { registerMinecraftHandlers } from "./minecraft"
 import { registerWorldsHandlers } from "./worlds"
 import { registerServerHandlers } from "./servers"
+import { registerVpnHandlers } from "./vpn"
 import { registerQuickPlayHandlers } from "./quick-play"
 import { registerUpdater } from "./updater"
 import { registerSkinsHandlers } from "./skins"
@@ -28,6 +29,7 @@ registerCloudHandlers()
 registerMinecraftHandlers()
 registerWorldsHandlers()
 registerServerHandlers()
+registerVpnHandlers()
 
 registerP2PHandlers()
 registerQuickPlayHandlers()
@@ -35,10 +37,16 @@ registerUpdater()
 registerSkinsHandlers()
 registerBundledModsHandlers()
 
-// Auto-refresh Microsoft tokens when app is ready
+// Автообновление Microsoft-сессий: на старте и далее раз в 4 часа,
+// чтобы перед запуском игры токен всегда был действителен.
+const MICROSOFT_REFRESH_INTERVAL_MS = 4 * 60 * 60 * 1000
+
 app.whenReady().then(async () => {
   await autoRefreshMicrosoftAccounts()
+  setInterval(() => {
+    void autoRefreshMicrosoftAccounts()
+  }, MICROSOFT_REFRESH_INTERVAL_MS)
 })
 
-import("@xnlc/mods").catch(() => {})
+import("@spot/mods").catch(() => {})
 

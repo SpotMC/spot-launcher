@@ -3,11 +3,11 @@ import path from "path"
 
 // Folders that are identical across every instance and therefore safe to share
 // through a junction/symlink to a single read-only-by-convention cache root.
-// They are re-created by @xnlc/core during installation.
+// They are re-created by @spot/core during installation.
 const SHARED_GAME_FOLDERS = ["versions", "libraries", "assets"] as const
 
 export function getSharedMinecraftRoot(): string | null {
-  return process.env.XNEON_SHARED_MC_DIR || null
+  return process.env.SPOT_SHARED_MC_DIR || null
 }
 
 /**
@@ -47,7 +47,7 @@ function linkDirSync(linkPath: string, targetDir: string): void {
     fs.symlinkSync(targetDir, linkPath, process.platform === "win32" ? "junction" : "dir")
   } catch {
     // Junction creation may fail (privileges, FS without links). Fall back to
-    // a plain per-instance directory; @xnlc/core will download into it.
+    // a plain per-instance directory; @spot/core will download into it.
     try {
       fs.mkdirSync(linkPath, { recursive: true })
     } catch {

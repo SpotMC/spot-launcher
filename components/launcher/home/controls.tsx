@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next"
 import type { Account } from "@/src/AccountsContext"
 import { cn } from "@/lib/utils"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { ACCOUNT_TYPE_LABELS, type LaunchUiState } from "@/lib/home-page-shared"
+import { ACCOUNT_TYPE_LABELS, MOD_LOADERS, type LaunchUiState } from "@/lib/home-page-shared"
 import { IconCheck, IconChevronDown, IconFolder, IconLoader2, IconPlayerPlay, IconPlayerStop } from "@tabler/icons-react"
 import { CachedAvatar } from "@/components/ui/cached-avatar"
 import type { LoaderVersionOption } from "@/src/hooks/use-loader-version-options"
@@ -42,7 +42,10 @@ export const HomeControls = memo(function HomeControls(props: HomeControlsProps)
     accounts, account, accountComboOpen, setAccountComboOpen, setActiveAccount,
     activeAvatarUrl, accountAvatarUrls,
     launchUi, launchDetails, isRunning, onPlay,
-    loaderVersionsLoaded, selectedLoaderVersion, loaderVersions,
+    loaderVersionsLoaded, loaderVersions,
+    versions, versionsLoaded, selectedVersion, setSelectedVersion,
+    selectedModLoader, setSelectedModLoader,
+    selectedLoaderVersion, setSelectedLoaderVersion,
   } = props
 
   const loaderVersionSelectionPending = !loaderVersionsLoaded || !selectedLoaderVersion
@@ -97,29 +100,63 @@ export const HomeControls = memo(function HomeControls(props: HomeControlsProps)
 
       <div className="flex flex-col gap-2 rounded-xl bg-white/[0.03] border border-white/[0.04] p-3">
         <div>
-          <label className="mb-1 block text-[11px] font-medium text-white/35">Версия</label>
-          <div className="h-9 w-full rounded-lg border border-white/[0.08] bg-white/[0.04] text-[12px] text-white flex items-center px-3">
-            <span className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-400" />
-              1.21.11
-            </span>
-          </div>
+          <label htmlFor="home-version-select" className="mb-1 block text-[11px] font-medium text-white/35">Версия</label>
+          <select
+            id="home-version-select"
+            value={selectedVersion}
+            onChange={(e) => setSelectedVersion(e.target.value)}
+            disabled={versionsLoaded ? versions.length === 0 : true}
+            className="h-9 w-full rounded-lg border border-white/[0.08] bg-[#1d1e25] px-3 text-[12px] text-white outline-none transition-colors focus:border-white/20 disabled:cursor-not-allowed disabled:opacity-50 [&>option]:bg-[#1d1e25]"
+          >
+            {versionsLoaded ? (
+              versions.map((v) => (
+                <option key={v} value={v}>{v}</option>
+              ))
+            ) : (
+              <option value={selectedVersion}>{selectedVersion || "—"}</option>
+            )}
+          </select>
         </div>
 
         <div>
-          <label className="mb-1 block text-[11px] font-medium text-white/35">Загрузчик</label>
-          <div className="h-9 w-full rounded-lg border border-white/[0.08] bg-white/[0.04] text-[12px] text-white flex items-center px-3">
-            <span className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-[#8d9ff5]" />
-              Fabric
-            </span>
-          </div>
+          <label htmlFor="home-loader-select" className="mb-1 block text-[11px] font-medium text-white/35">Загрузчик</label>
+          <select
+            id="home-loader-select"
+            value={selectedModLoader}
+            onChange={(e) => setSelectedModLoader(e.target.value)}
+            className="h-9 w-full rounded-lg border border-white/[0.08] bg-[#1d1e25] px-3 text-[12px] text-white outline-none transition-colors focus:border-white/20 [&>option]:bg-[#1d1e25]"
+          >
+            {MOD_LOADERS.map((loader) => (
+              <option key={loader.id} value={loader.id} className="capitalize">{loader.name}</option>
+            ))}
+          </select>
         </div>
+
+        {selectedModLoader !== "vanilla" && (
+          <div>
+            <label htmlFor="home-loader-version-select" className="mb-1 block text-[11px] font-medium text-white/35">Версия загрузчика</label>
+            <select
+              id="home-loader-version-select"
+              value={selectedLoaderVersion}
+              onChange={(e) => setSelectedLoaderVersion(e.target.value)}
+              disabled={loaderVersionsLoaded ? loaderVersions.length === 0 : true}
+              className="h-9 w-full rounded-lg border border-white/[0.08] bg-[#1d1e25] px-3 text-[12px] text-white outline-none transition-colors focus:border-white/20 disabled:cursor-not-allowed disabled:opacity-50 [&>option]:bg-[#1d1e25]"
+            >
+              {loaderVersionsLoaded ? (
+                loaderVersions.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label ?? option.value}</option>
+                ))
+              ) : (
+                <option value={selectedLoaderVersion}>{selectedLoaderVersion || "—"}</option>
+              )}
+            </select>
+          </div>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-1.5 px-1">
-        <span className="rounded-md bg-white/[0.06] px-2 py-0.5 text-[10px] font-medium text-white/50">1.21.11</span>
-        <span className="rounded-md bg-white/[0.06] px-2 py-0.5 text-[10px] font-medium capitalize text-white/50">fabric</span>
+        <span className="rounded-md bg-white/[0.06] px-2 py-0.5 text-[10px] font-medium text-white/50">{selectedVersion || "—"}</span>
+        <span className="rounded-md bg-white/[0.06] px-2 py-0.5 text-[10px] font-medium capitalize text-white/50">{selectedModLoader}</span>
         <span className="rounded-md bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-400/80">Online</span>
       </div>
 

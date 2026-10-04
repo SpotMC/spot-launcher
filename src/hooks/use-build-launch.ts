@@ -2,6 +2,7 @@ import { useCallback } from "react"
 import { useTranslation } from "react-i18next"
 import type { Account } from "@/src/AccountsContext"
 import { useLaunchControls } from "@/src/LaunchLogsContext"
+import { resolveLaunchErrorMessage } from "@/lib/launch-error"
 
 export type BuildLaunchParams = {
   id: string
@@ -30,10 +31,10 @@ export type BuildLaunchParams = {
 
 export function saveLastLaunchedPrefs(version: string, modLoader: string, loaderVersion?: string) {
   try {
-    localStorage.setItem("xneon-launcher:lastVersion", version)
-    localStorage.setItem("xneon-launcher:lastModLoader", modLoader)
-    if (loaderVersion) localStorage.setItem("xneon-launcher:lastLoaderVersion", loaderVersion)
-    else localStorage.removeItem("xneon-launcher:lastLoaderVersion")
+    localStorage.setItem("spot-launcher:lastVersion", version)
+    localStorage.setItem("spot-launcher:lastModLoader", modLoader)
+    if (loaderVersion) localStorage.setItem("spot-launcher:lastLoaderVersion", loaderVersion)
+    else localStorage.removeItem("spot-launcher:lastLoaderVersion")
   } catch {
     // ignore storage errors
   }
@@ -136,7 +137,7 @@ export function useBuildLaunch({ account }: { account?: Account }) {
       if (eq > 0) envRecord[trimmed.slice(0, eq).trim()] = trimmed.slice(eq + 1).trim()
     }
 
-    const usesSkinInjector = account.type === "xnskins" || account.type === "elyby"
+    const usesSkinInjector = account.type === "elyby"
 
     // Per-build auto-join server override
     const useBuildServer = build.serverOverride === true
@@ -190,10 +191,11 @@ export function useBuildLaunch({ account }: { account?: Account }) {
       ...(Object.keys(envRecord).length > 0 ? { customEnv: envRecord } : {}),
     })
 
+    const launchError = resolveLaunchErrorMessage(result.error, t, "Ошибка запуска")
     patchLaunchUi(result.success
       ? { isLaunching: false, phase: "idle", progress: 100, status: t("launcherStatus.running") }
-      : { isLaunching: false, status: result.error ?? "Ошибка запуска" })
-    if (!result.success) addLog(`[Лаунчер] ${result.error ?? "Ошибка запуска"}`, "error")
+      : { isLaunching: false, status: launchError })
+    if (!result.success) addLog(`[Лаунчер] ${launchError}`, "error")
     if (result.success) {
       setIsRunning(true)
       saveLastLaunchedPrefs(build.name, "instance")

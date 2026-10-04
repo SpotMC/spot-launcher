@@ -12,7 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { MOD_LOADERS } from "./constants"
 import { LoaderIcon } from "./loader-icon"
 import type { Build } from "./types"
-import type { BuildExportCategory } from "@xnlc/types"
+import type { BuildExportCategory } from "@spot/types"
 
 interface InstanceListProps {
   builds: Build[]

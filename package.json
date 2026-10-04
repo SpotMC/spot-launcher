@@ -1,6 +1,6 @@
 {
   "name": "spot-launcher",
-  "version": "2.2.1",
+  "version": "4.0.0",
   "description": "Spot Launcher desktop application",
   "author": {
     "name": "SpotMC",
@@ -19,11 +19,11 @@
     "@fontsource/inter": "^5.3.0",
     "@fontsource/plus-jakarta-sans": "^5.3.0",
     "@fontsource/unbounded": "^5.3.0",
-    "@xnlc/core": "^1.0.5",
-    "@xnlc/mods": "^1.0.2",
-    "@xnlc/nbt": "^1.0.0",
-    "@xnlc/p2p": "^1.0.2",
-    "@xnlc/types": "^1.0.7",
+    "@spot/core": "workspace:*",
+    "@spot/mods": "workspace:*",
+    "@spot/nbt": "workspace:*",
+    "@spot/p2p": "workspace:*",
+    "@spot/types": "workspace:*",
     "adm-zip": "^0.6.0",
     "axios": "^1.18.1",
     "discord-rpc": "^4.0.1",
@@ -35,12 +35,13 @@
     "node-datachannel": "^0.26.0",
     "skinview3d": "^3.4.2",
     "sql.js": "^1.14.1",
+    "tar": "^7.5.22",
     "three": "^0.185.1",
     "toml": "^5.0.0",
     "webdav": "^5.10.0"
   },
   "scripts": {
-    "sync:xnlc": "node scripts/sync-local-xnlc.mjs",
+    "sync:spot": "node scripts/sync-local-spot.mjs",
     "predev": "node scripts/gen-credentials.mjs",
     "prebuild": "node scripts/gen-credentials.mjs",
     "prepackage": "node scripts/gen-credentials.mjs",
@@ -53,8 +54,10 @@
     "build:electron": "tsc -p tsconfig.node.json",
     "build": "pnpm run typecheck && vite build && pnpm run build:electron",
     "package": "pnpm run build && electron-builder",
-    "typecheck": "tsc --noEmit",
-    "test:xn-auth": "node scripts/test-xn-auth.mjs"
+    "package:win": "pnpm run build && electron-builder --win nsis zip --publish never",
+    "package:mac": "pnpm run build && electron-builder --mac dmg zip --publish never",
+    "package:linux": "pnpm run build && electron-builder --linux AppImage deb rpm tar.xz pacman --publish never",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@electron/rebuild": "^4.2.0",
@@ -101,7 +104,7 @@
       "provider": "generic",
       "url": "https://admin.nexus-manage.ru/updates"
     },
-    "win": {
+"win": {
       "target": [
         "nsis"
       ],
@@ -122,14 +125,14 @@
     "files": [
       "dist/**/*",
       "dist-electron/**/*",
-      "!**/xnlc/src/**",
-      "!**/xnlc-nbt/src/**",
-      "!**/xnlc/test*",
-      "!**/xnlc-nbt/test*",
-      "!**/xnlc/installer.log",
-      "!**/xnlc-nbt/installer.log",
-      "!**/xnlc/tsconfig.json",
-      "!**/xnlc-nbt/tsconfig.json"
+      "!**/spot/src/**",
+      "!**/spot-nbt/src/**",
+      "!**/spot/test*",
+      "!**/spot-nbt/test*",
+      "!**/spot/installer.log",
+      "!**/spot-nbt/installer.log",
+      "!**/spot/tsconfig.json",
+      "!**/spot-nbt/tsconfig.json"
     ],
     "linux": {
       "target": [
@@ -173,8 +176,10 @@
       "icon": "build/icon.png",
       "category": "public.app-category.games",
       "artifactName": "${name}-${version}-mac-${arch}.${ext}",
-      "hardenedRuntime": true,
-      "gatekeeperAssess": false
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "identity": null,
+      "notarize": false
     },
     "dmg": {
       "contents": [

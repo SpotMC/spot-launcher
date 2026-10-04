@@ -7,7 +7,7 @@ import { getMainWindow } from "./runtime"
 import { discoverAllInstances, discoverGdLauncherInstances, discoverInstancesFromPath, importLauncherInstance } from "./import"
 import { execAsync, fileExists } from "./import/helpers"
 import { sendImportProgress } from "./builds/helpers"
-import { fetchWithRetry } from "@xnlc/core/retry"
+import { fetchWithRetry } from "@spot/core/retry"
 
 const MOJANG_BASE = "https://launchercontent.mojang.com"
 

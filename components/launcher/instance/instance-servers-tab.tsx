@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 import { cn } from "@/lib/utils"
+import { resolveLaunchErrorMessage } from "@/lib/launch-error"
 import {
   IconChevronDown,
   IconChevronUp,
@@ -473,7 +474,7 @@ export function InstanceServersTab({ build, updateBuild }: InstanceServersTabPro
 
       const intentPath = build.name ? await api.getBuildIntentPath(build.name) : undefined
 
-      await api.launchMinecraft({
+      const result = await api.launchMinecraft({
         version: build.version,
         modLoader: build.modLoader as "vanilla" | "forge" | "fabric" | "quilt" | "liteloader" | "optifine" | "neoforge",
         ...(build.loaderVersion ? { loaderVersion: build.loaderVersion } : {}),
@@ -499,6 +500,13 @@ export function InstanceServersTab({ build, updateBuild }: InstanceServersTabPro
           ),
         } : {}),
       })
+
+      // Раньше результат запуска игнорировался, и ошибки были не видны.
+      if (!result.success) {
+        setServers((prev) =>
+          prev.map((p) => (p.ip === status.ip ? { ...p, loading: false, error: resolveLaunchErrorMessage(result.error, t, "Ошибка запуска") } : p))
+        )
+      }
     } finally {
       setConnectingIp(null)
     }

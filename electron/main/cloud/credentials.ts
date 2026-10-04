@@ -4,7 +4,6 @@ export type CloudCredentials = {
   yandex: { clientId: string }
   onedrive: { clientId: string }
   elyby: { clientId: string; clientSecret: string; deviceClientId: string }
-  xnskins: { clientId: string; clientSecret: string }
   microsoft: { clientId: string }
   microsoftDevice: { clientId: string }
 }
@@ -15,7 +14,6 @@ const EMPTY: CloudCredentials = {
   yandex: { clientId: "" },
   onedrive: { clientId: "" },
   elyby: { clientId: "", clientSecret: "", deviceClientId: "" },
-  xnskins: { clientId: "", clientSecret: "" },
   microsoft: { clientId: "" },
   microsoftDevice: { clientId: "" },
 }

@@ -8,7 +8,7 @@
 import { ipcMain, nativeImage } from "electron"
 import path from "path"
 import fs from "fs/promises"
-import type { NBTCompound } from "@xnlc/nbt"
+import type { NBTCompound } from "@spot/nbt"
 import { ensureBuildIntentDir, downloadBuffer, sanitizeFileName } from "./builds/helpers"
 
 type WorldInfo = {
@@ -97,7 +97,7 @@ async function updateLevelName(worldPath: string, newName: string): Promise<void
   const level = await readLevelNbt(worldPath)
   if (!level) return
   try {
-    const nbt = await import("@xnlc/nbt")
+    const nbt = await import("@spot/nbt")
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const data = (level as any).Data
     if (data?.LevelName) {
@@ -131,7 +131,7 @@ async function dirSize(dirPath: string, maxEntries = 200000): Promise<number> {
 
 async function readLevelNbt(worldPath: string): Promise<NBTCompound | null> {
   try {
-    const nbt = await import("@xnlc/nbt")
+    const nbt = await import("@spot/nbt")
     const levelFile = path.join(worldPath, "level.dat")
     const buffer = await fs.readFile(levelFile)
     return new nbt.NBTReader(buffer).read({ compressed: "gzip" })
@@ -220,7 +220,7 @@ function parseWorldFolder(savesDir: string, folder: string): Promise<WorldInfo> 
 
     if (!seed) {
       try {
-        const nbt = await import("@xnlc/nbt")
+        const nbt = await import("@spot/nbt")
         const wgsPath = path.join(worldPath, "data", "minecraft", "world_gen_settings.dat")
         const wgsBuffer = await fs.readFile(wgsPath)
         const wgsNbt = new nbt.NBTReader(wgsBuffer).read({ compressed: "gzip" })
@@ -319,7 +319,7 @@ export function registerWorldsHandlers(): void {
       const level = await readLevelNbt(targetWorldPath)
       if (level) {
         try {
-          const nbt = await import("@xnlc/nbt")
+          const nbt = await import("@spot/nbt")
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const data = (level as any).Data
           if (data?.LevelName) {

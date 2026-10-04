@@ -3,9 +3,9 @@ import path from "path"
 import crypto from "crypto"
 import type { CloudProvider, CloudAuthResult, CloudFileListResult, CloudUploadResult, CloudDownloadResult, CloudStorageQuota, CloudFileInfo } from "../provider"
 import { dbHelpers } from "../../../db"
-import { fetchWithRetry } from "@xnlc/core/retry"
+import { fetchWithRetry } from "@spot/core/retry"
 
-const BASE_PREFIX = "xneon-launcher/"
+const BASE_PREFIX = "spot-launcher/"
 
 type S3Config = {
   endpoint: string

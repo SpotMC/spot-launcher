@@ -9,7 +9,7 @@ import { LoaderIcon } from "./loader-icon"
 import { IconPickerModal } from "./icon-picker-modal"
 import { useHomeVersions } from "@/src/hooks/use-home-versions"
 import { useLoaderVersionOptions } from "@/src/hooks/use-loader-version-options"
-import type { ImportProgress } from "@xnlc/types"
+import type { ImportProgress } from "@spot/types"
 
 interface InstanceCreateDialogProps {
   open: boolean
