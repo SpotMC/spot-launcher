@@ -16,7 +16,6 @@ import { registerVpnHandlers } from "./vpn"
 import { registerQuickPlayHandlers } from "./quick-play"
 import { registerUpdater } from "./updater"
 import { registerSkinsHandlers } from "./skins"
-import { registerBundledModsHandlers } from "./bundled-mods"
 import { registerJavaHandlers } from "./java"
 import { app } from "electron"
 
@@ -35,10 +34,7 @@ registerP2PHandlers()
 registerQuickPlayHandlers()
 registerUpdater()
 registerSkinsHandlers()
-registerBundledModsHandlers()
 
-// Автообновление Microsoft-сессий: на старте и далее раз в 4 часа,
-// чтобы перед запуском игры токен всегда был действителен.
 const MICROSOFT_REFRESH_INTERVAL_MS = 4 * 60 * 60 * 1000
 
 app.whenReady().then(async () => {
@@ -49,4 +45,3 @@ app.whenReady().then(async () => {
 })
 
 import("@spot/mods").catch(() => {})
-

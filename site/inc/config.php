@@ -50,7 +50,7 @@ if (!defined('MAX_UPLOAD_BYTES')) {
 // Какие расширения можно загружать в папку обновлений.
 if (!defined('ALLOWED_EXT')) {
     // dmg — macOS-установщик, pkg — macOS-JDK, zip — macOS-обновление для electron-updater.
-    define('ALLOWED_EXT', ['yml', 'yaml', 'exe', 'zip', 'dmg', 'pkg', 'blockmap', 'json', 'txt']);
+    define('ALLOWED_EXT', ['yml', 'yaml', 'exe', 'zip', 'dmg', 'pkg', 'blockmap', 'json', 'txt', 'appimage', 'deb', 'rpm', 'tar.xz', 'xz', 'zst']);
 }
 
 // Защитные HTTP-заголовки.

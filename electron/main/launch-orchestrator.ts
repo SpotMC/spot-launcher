@@ -275,6 +275,100 @@ export class LaunchOrchestrator {
     })
   }
 
+
+  // ---------- Prepare (background download/install without launch) ----------
+  async prepareBuild(
+    launchAccount: DbAccount,
+    request: ResolvedLaunchRequest & { buildName?: string; buildId?: string; gameDir?: string; quickPlayMultiplayer?: string },
+  ): Promise<LaunchResultPayload> {
+    let gameDir = request.gameDir ?? (await getDefaultGameDir())
+    if (request.buildName && !request.gameDir) {
+      try {
+        const buildIntentPath = getBuildIntentPath(request.buildName)
+        if (buildIntentPath) {
+          gameDir = buildIntentPath
+          logRuntimeDebug(`[Minecraft] Using build intentPath: ${gameDir}`)
+        }
+      } catch (error) {
+        logRuntime(`[Minecraft] Failed to get build intent path: ${error instanceof Error ? error.message : String(error)}`)
+      }
+    }
+
+    const retroauthEnabled = launchAccount.type === "elyby" || (await dbHelpers.getSetting("retroauthInjectorEnabled")) === "true"
+    const workerPath = path.join(__dirname, "minecraft-launch-worker.js")
+    const worker = fork(workerPath, [], { stdio: ["pipe", "pipe", "pipe", "ipc"], env: process.env })
+    this.launchWorker = worker
+    this.minecraftPid = null
+
+    return new Promise<LaunchResultPayload>((resolve) => {
+      let settled = false
+      const settle = (r: LaunchResultPayload): void => {
+        if (settled) return
+        settled = true
+        if (!r.success) this.clearState()
+        resolve(r)
+      }
+      type WM = { type: string; message?: string; progress?: Record<string, unknown>; pid?: number; code?: number; error?: string; data?: string }
+      worker.on("message", (raw: unknown) => {
+        const p = raw as WM | null
+        if (!p) return
+        switch (p.type) {
+          case "worker-debug":
+            this.emitDebug(`[spot] ${p.message ?? ""}`)
+            return
+          case "progress":
+            this.emitToRenderer("minecraft:download-progress", p.progress)
+            return
+          case "java-progress":
+            this.emitToRenderer("minecraft:java-progress", p.progress)
+            return
+          case "started":
+            this.minecraftPid = typeof p.pid === "number" ? p.pid : null
+            this.emitGameData("[Launcher] Version preparation started")
+            settle({ success: true, pid: this.minecraftPid ?? undefined })
+            return
+          case "stdout":
+            this.emitGameData(p.data ?? "")
+            return
+          case "stderr":
+            this.emitDebug(p.data ?? "")
+            return
+          case "close":
+            this.clearState()
+            this.emitToRenderer("minecraft:close", typeof p.code === "number" ? p.code : 0)
+            return
+          case "error":
+            settle({ success: false, error: p.error ?? "Prepare failed" })
+        }
+      })
+      worker.once("error", (e: Error) => settle({ success: false, error: e.message }))
+      worker.once("exit", (code: number | null, signal: NodeJS.Signals | null) => {
+        if (!settled) {
+          const reason = signal ? `signal ${signal}` : `code ${code ?? 0}`
+          settle({ success: false, error: `Prepare worker exited unexpectedly (${reason})` })
+          return
+        }
+        this.clearState()
+      })
+      const decodeChunk = async (chunk: Buffer | string): Promise<string> => {
+        if (typeof chunk === "string") return chunk
+        const iconv = await import("iconv-lite")
+        return iconv.default.decode(chunk, "cp866")
+      }
+      worker.stdout?.on("data", (c: Buffer | string) => {
+        decodeChunk(c).then(t => this.emitDebug(`[spot] ${t}`))
+      })
+      worker.stderr?.on("data", (c: Buffer | string) => {
+        decodeChunk(c).then(t => this.emitDebug(`[spot] ${t}`))
+      })
+      try {
+        worker.send({ type: "launch", payload: { gameDir, account: launchAccount, options: { ...request, retroauthEnabled, mode: "prepare" } } })
+      } catch (e) {
+        settle({ success: false, error: e instanceof Error ? e.message : String(e) })
+      }
+    })
+  }
+
   // ---------- Private Helpers ----------
 
   private emitToRenderer(channel: string, payload: unknown): void {

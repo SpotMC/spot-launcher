@@ -462,8 +462,7 @@ export interface ElectronAPIExplicit {
   onCliLaunchBuild: (callback: (buildName: string) => void) => CleanupFn
   getSetting: (key: string) => Promise<string | undefined>
   setSetting: (key: string, value: string) => Promise<void>
-  listBundledMods: () => Promise<Array<{ fileName: string; displayName: string; required: boolean }>>
-  installBundledMods: (selected: string[]) => Promise<{ success: boolean; installed: number; error?: string }>
+  // bundled mods removed
   getBuildIntentPath: (buildId: string) => Promise<string>
   getInstancesRoot: () => Promise<string>
   pickFolder: (title?: string) => Promise<string | null>

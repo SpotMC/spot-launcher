@@ -1,0 +1,47 @@
+name: spot-launcher
+base: core22
+version: '4.0.0'
+summary: Minecraft launcher Spot Launcher
+description: |
+  Spot Launcher - modern Electron Minecraft launcher
+  Supports Windows, macOS, Linux.
+grade: stable
+confinement: strict
+apps:
+  spot-launcher:
+    command: bin/spot-launcher
+    desktop: usr/share/applications/spot-launcher.desktop
+    extensions: [gnome]
+    plugs:
+      - audio-playback
+      - audio-record
+      - network
+      - network-bind
+      - home
+      - removable-media
+      - wayland
+      - x11
+      - opengl
+      - desktop
+      - unity7
+parts:
+  spot-launcher:
+    plugin: dump
+    source: release/
+    organize:
+      '*.AppImage': bin/spot-launcher.AppImage
+    override-build: |
+      snapcraftctl build
+      if [ -f /bin/spot-launcher.AppImage ]; then
+        mv /bin/spot-launcher.AppImage /bin/spot-launcher
+        chmod +x /bin/spot-launcher
+      fi
+    stage-packages:
+      - libnss3
+      - libnspr4
+      - libgtk-3-0
+      - libxss1
+      - libxtst6
+      - libasound2
+      - libdrm2
+      - libgbm1

@@ -245,14 +245,16 @@ export function useBuilds() {
       intentPath = await window.electronAPI?.getBuildIntentPath(trimmedName) ?? ""
       await window.electronAPI?.setBuildIntentPath(trimmedName, intentPath)
     } catch {}
-    setBuilds(prev => [{
+    const newBuild: Build = {
       id, name: trimmedName, description: params.description.trim(),
       version: params.version, modLoader: params.modLoader, loaderVersion: params.loaderVersion,
       icon: params.icon, coverImage: params.icon || undefined,
       mods: [], resourcepacks: [], shaders: [],
       createdAt: new Date().toISOString(), source: "local",
       intentPath, installedMods: {}, playtime: 0,
-    }, ...prev])
+    }
+    setBuilds(prev => [newBuild, ...prev])
+    setActiveBuildId(id)
   }, [])
 
   const deleteBuild = useCallback(async (id: string) => {

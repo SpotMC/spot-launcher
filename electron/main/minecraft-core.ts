@@ -93,3 +93,9 @@ export async function runLaunchWorker(
 ): Promise<LaunchResultPayload> {
   return getLaunchOrchestrator().runLaunch(launchAccount, request)
 }
+export async function prepareLaunchWorker(
+  launchAccount: DbAccount,
+  request: ResolvedLaunchRequest & { buildName?: string; buildId?: string; gameDir?: string },
+): Promise<LaunchResultPayload> {
+  return getLaunchOrchestrator().prepareBuild(launchAccount, request as any)
+}

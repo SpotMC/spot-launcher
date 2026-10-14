@@ -97,7 +97,7 @@ $token = csrf_token();
             <div class="dz-title">Перетащите файлы сюда или нажмите для выбора</div>
             <div class="dz-sub">Разрешены: <?php echo implode(', ', ALLOWED_EXT); ?></div>
           </div>
-          <input type="file" id="fileInput" multiple style="display:none" accept=".yml,.yaml,.exe,.blockmap,.zip,.dmg,.pkg,.json,.txt">
+          <input type="file" id="fileInput" multiple style="display:none" accept=".yml,.yaml,.exe,.blockmap,.zip,.dmg,.pkg,.json,.txt,.appimage,.deb,.rpm,.tar.xz,.xz,.zst">
           <div id="uploadStatus"></div>
         </div>
       </div>

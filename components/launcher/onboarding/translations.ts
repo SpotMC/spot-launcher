@@ -50,7 +50,6 @@ export const ONBOARDING_COPY: Record<OnboardingLanguage, OnboardingCopy> = {
       { title: "Тема", description: "Теперь выбери визуальный стиль лаунчера." },
       { title: "Импорт", description: "Импортируй найденные сборки из другого лаунчера." },
       { title: "Аккаунт", description: "Добавь хотя бы один аккаунт прямо здесь." },
-      { title: "Моды", description: "Выбери моды, которые будут установлены." },
       { title: "Память", description: "Укажи, сколько RAM выделять игре." },
     ],
     skip: "Пропустить",

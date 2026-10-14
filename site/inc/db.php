@@ -76,9 +76,10 @@ CREATE TABLE IF NOT EXISTS updates (
     size INTEGER NOT NULL DEFAULT 0,
     sha256 TEXT,
     uploaded_at INTEGER NOT NULL,
-    notes TEXT
-);
-CREATE TABLE IF NOT EXISTS rate_limiting (
+        notes TEXT,
+        platform TEXT
+    );
+    CREATE TABLE IF NOT EXISTS rate_limiting (
     action TEXT NOT NULL,
     ip TEXT NOT NULL,
     window_start INTEGER NOT NULL,

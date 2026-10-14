@@ -192,10 +192,9 @@ export type LauncherExtraApi = {
   skinsApplyLibrarySkin: (skinId: string, accountId: string) => Promise<boolean>
   skinsImportFromUrl: (url: string, name: string, variant: "classic" | "slim", accountId: string) => Promise<LibrarySkin | null>
   readLocalFile: (filePath: string) => Promise<string | null>
-  listBundledMods: () => Promise<Array<{ fileName: string; displayName: string; required: boolean }>>
-  installBundledMods: (selected: string[]) => Promise<{ success: boolean; installed: number; error?: string }>
+  // bundled mods removed
   checkJava: () => Promise<{ installed: boolean; path?: string; version?: string; label?: string }>
-  installJava: () => Promise<{ success: boolean; path?: string; error?: string }>
+  installJava: (mcVersion?: string) => Promise<{ success: boolean; path?: string; error?: string }>
   launchJavaInstaller: () => Promise<{ success: boolean; error?: string }>
   onJavaInstallProgress: (callback: (progress: { status: string; percent: number | null; message: string }) => void) => () => void
   openLegalWindow: () => Promise<void>

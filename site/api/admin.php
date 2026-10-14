@@ -39,6 +39,16 @@ switch ($action) {
                 $r['channel'] = 'beta';
                 $r['url'] = UPDATES_URL . '-beta' . '/' . rawurlencode($fn);
             }
+            if (!isset($r['platform']) || !$r['platform']) {
+                $ext = strtolower(pathinfo($fn, PATHINFO_EXTENSION));
+                if ($ext === 'dmg' || $ext === 'pkg') {
+                    $r['platform'] = 'macos';
+                } elseif ($ext === 'appimage' || $ext === 'deb' || $ext === 'rpm' || $ext === 'tar.xz' || $ext === 'xz' || $ext === 'zst') {
+                    $r['platform'] = 'linux';
+                } else {
+                    $r['platform'] = 'windows';
+                }
+            }
         }
         json_out(['ok' => true, 'updates' => $rows]);
 

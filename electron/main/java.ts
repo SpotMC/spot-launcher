@@ -14,6 +14,12 @@ export type JavaCheckResult = {
   label?: string
 }
 
+function getJavaMajor(mcVersion: string): number {
+  if (mcVersion && mcVersion.startsWith("26.")) return 25
+  if (mcVersion && /^1\.21\.(1[1-9]|[2-9]\d)/.test(mcVersion)) return 21
+  return 21
+}
+
 function sendInstallProgress(patch: { status: string; percent: number | null; message: string }) {
   const win = getMainWindow()
   if (win && !win.isDestroyed()) {
@@ -60,10 +66,11 @@ export async function checkJava(): Promise<JavaCheckResult> {
   return { installed: false }
 }
 
-export async function installJava(): Promise<{ success: boolean; path?: string; error?: string }> {
+export async function installJava(mcVersion?: string): Promise<{ success: boolean; path?: string; error?: string }> {
+  const javaMajor = getJavaMajor(mcVersion || "")
   const launcherDir = await dbHelpers.getLauncherDirectory()
   const runtimeDir = path.join(launcherDir, "runtime", "java")
-  const majorDir = path.join(runtimeDir, `jre-${JAVA_MAJOR}`)
+  const majorDir = path.join(runtimeDir, `jre-${javaMajor}`)
 
   try {
     const existing = await findJavaExecutable(majorDir)
@@ -77,8 +84,8 @@ export async function installJava(): Promise<{ success: boolean; path?: string; 
   const osName = pl === "win32" ? "windows" : pl === "darwin" ? "mac" : "linux"
   const arch = process.arch === "arm64" ? "aarch64" : process.arch === "ia32" ? "x86" : "x64"
 
-  const downloadUrl = `https://api.adoptium.net/v3/binary/latest/${JAVA_MAJOR}/ga/${osName}/${arch}/jre/hotspot/normal/eclipse`
-  const tempArchive = path.join(runtimeDir, `jre-${JAVA_MAJOR}.archive`)
+  const downloadUrl = `https://api.adoptium.net/v3/binary/latest/${javaMajor}/ga/${osName}/${arch}/jre/hotspot/normal/eclipse`
+  const tempArchive = path.join(runtimeDir, `jre-${javaMajor}.archive`)
 
   await fs.mkdir(runtimeDir, { recursive: true })
 
@@ -199,9 +206,9 @@ export function registerJavaHandlers() {
     return checkJava()
   })
 
-  ipcMain.handle("java:install", async (): Promise<{ success: boolean; path?: string; error?: string }> => {
+  ipcMain.handle("java:install", async (_ev, mcVersion?: string): Promise<{ success: boolean; path?: string; error?: string }> => {
     try {
-      return await installJava()
+      return await installJava(mcVersion)
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : "Ошибка установки Java" }
     }

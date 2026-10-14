@@ -9,6 +9,7 @@ import {
   loadSpotModule,
   resolveLaunchAccount,
   runLaunchWorker,
+  prepareLaunchWorker,
   stopLaunchWorker,
 } from "./minecraft-core"
 import { logRuntimeDebug } from "./runtime"
@@ -213,7 +214,54 @@ const launchHandlers: IpcHandlerDef[] = [
 
   rawHandler("minecraft:get-game-dir", async () => getGameDir()),
 
-  rawHandler("minecraft:is-running", async () => isLaunchActive()),
+  rawHandler("minecraft:prepare-build", async (...args: unknown[]): Promise<LaunchResultPayload> => {
+    const options = args[0] as MinecraftLaunchParams
+    const { resolveLaunchRequest } = await loadSpotModule()
+    const request = resolveLaunchRequest(options as any)
+
+    try {
+      if (await isUpdateRequired()) {
+        return { success: false, error: UPDATE_REQUIRED_ERROR }
+      }
+      if (isLaunchActive()) {
+        return { success: false, error: "Minecraft is already launching or running" }
+      }
+      if ("error" in request) {
+        return { success: false, error: request.error }
+      }
+      const launchAccount = await resolveLaunchAccount(options.account as any)
+      if (!launchAccount) {
+        return { success: false, error: "No active account. Please select an account first." }
+      }
+      logRuntimeDebug(`[Minecraft] Using account ${launchAccount.type}:${launchAccount.username}`)
+      if (!launchAccount.isActive) {
+        const { dbHelpers } = await import("../db.js")
+        await dbHelpers.saveAccount({ ...launchAccount, isActive: true })
+      }
+      const extendedRequest = {
+        ...request,
+        buildName: options.buildName,
+        buildId: (options as { buildId?: string }).buildId,
+        gameDir: options.gameDir,
+        javaArgs: (options as { javaArgs?: string }).javaArgs,
+        server: (options as { server?: string }).server,
+        serverPort: (options as { serverPort?: string }).serverPort,
+        quickPlaySingleplayer: (options as { quickPlaySingleplayer?: string }).quickPlaySingleplayer,
+        quickPlayMultiplayer: (options as { quickPlayMultiplayer?: string }).quickPlayMultiplayer,
+        preLaunchCommand: (options as { preLaunchCommand?: string }).preLaunchCommand,
+        postLaunchCommand: (options as { postLaunchCommand?: string }).postLaunchCommand,
+        wrapperCommand: (options as { wrapperCommand?: string }).wrapperCommand,
+        customEnv: (options as { customEnv?: Record<string, string> }).customEnv,
+        offlineUsername: (options as { offlineUsername?: string }).offlineUsername,
+      } as any
+      return await prepareLaunchWorker(launchAccount, extendedRequest)
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      console.error("Prepare failed:", errorMessage)
+      clearLaunchState()
+      return { success: false, error: errorMessage }
+    }
+  }),
 
   rawHandler("minecraft:stop", async () => {
     if (!isLaunchActive()) {

@@ -276,6 +276,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getGameDir: invoke<string>('minecraft:get-game-dir'),
   getAuth: invoke<AuthSession | null>('minecraft:get-auth'),
   launchMinecraft: (params: MinecraftLaunchParams) => ipcRenderer.invoke('minecraft:launch', params) as Promise<{ success: boolean; error?: string }>,
+  prepareBuild: (params: MinecraftLaunchParams) => ipcRenderer.invoke('minecraft:prepare-build', params) as Promise<{ success: boolean; pid?: number; error?: string }>,
   stopMinecraft: invoke<void>('minecraft:stop'),
   isMinecraftRunning: invoke<boolean>('minecraft:is-running'),
 
@@ -334,7 +335,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   detectJavaInstallations: invoke<JavaDetectResult[]>('java:detect'),
   pickJavaFile: invoke<string | null>('java:pick-file'),
   checkJava: invoke<{ installed: boolean; path?: string; version?: string; label?: string }>('java:check'),
-  installJava: invoke<{ success: boolean; path?: string; error?: string }>('java:install'),
+  installJava: (mcVersion?: string) => invoke<{ success: boolean; path?: string; error?: string }>('java:install')(mcVersion),
   launchJavaInstaller: invoke<{ success: boolean; error?: string }>('java:launch-installer'),
   onJavaInstallProgress: (callback: (progress: { status: string; percent: number | null; message: string }) => void) => subscribe('java:install-progress', callback),
 
@@ -429,6 +430,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onUpdateProgress: (callback: (progress: { percent: number; transferred: number; total: number }) => void) => subscribe('update:progress', callback),
 
   // ── Bundled Mods ────────────────────────────────────────
-  listBundledMods: invoke<Array<{ fileName: string; displayName: string; required: boolean }>>('bundled-mods:list'),
-  installBundledMods: (selected: string[]) => ipcRenderer.invoke('bundled-mods:install', selected) as Promise<{ success: boolean; installed: number; error?: string }>,
+  // bundled mods removed
 })

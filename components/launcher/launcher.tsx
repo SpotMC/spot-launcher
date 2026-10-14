@@ -15,6 +15,7 @@ import { Sidebar, type TabId } from "./sidebar"
 import { LaunchOverlay } from "./launch/launch-overlay"
 import { applyTheme, presetThemes } from "./settings/data"
 import { useAccounts } from "@/src/AccountsContext"
+import { BuildsProvider } from "@/src/BuildsContext"
 
 interface LauncherProps {
   onReady?: () => void
@@ -86,9 +87,10 @@ export function Launcher({ onReady }: LauncherProps) {
           <div className="relative z-10 flex h-full w-full">
             <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
 
-            <main className="flex-1 min-h-0 overflow-hidden bg-transparent flex flex-col">
+            <main className="relative flex-1 min-h-0 overflow-hidden bg-transparent flex flex-col">
               {renderPage()}
             </main>
+            <LaunchOverlay />
           </div>
 
           {showOnboarding && (

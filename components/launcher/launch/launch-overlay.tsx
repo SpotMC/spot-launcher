@@ -28,7 +28,7 @@ export function LaunchOverlay() {
   if (!visible) return null
 
   return createPortal(
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[#0a0b0e] px-4">
+    <div className="absolute inset-0 z-[200] flex items-center justify-center bg-[#0a0b0e]/95 px-4">
       <div className="pointer-events-none absolute -top-32 -left-24 h-[460px] w-[520px] rounded-full bg-[#8d9ff5]/[0.06] blur-[120px]" />
       <div className="flex w-full max-w-3xl flex-col">
         <div className="mb-6 flex items-center gap-3">

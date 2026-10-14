@@ -13,7 +13,6 @@ import { StepTheme } from "./onboarding/step-theme"
 import { StepImport } from "./onboarding/step-import"
 import { StepAccount } from "./onboarding/step-account"
 import { StepMemory } from "./onboarding/step-memory"
-import { StepMods } from "./onboarding/step-mods"
 
 type OnboardingModalProps = {
   selectedTheme: string
@@ -52,7 +51,6 @@ export function OnboardingModal({ selectedTheme, onSelectTheme, onFinish, onSkip
   })
   const [memoryMin, setMemoryMin] = useState("512M")
   const [memoryMax, setMemoryMax] = useState("4G")
-  const [selectedMods, setSelectedMods] = useState<string[]>([])
   const [importableInstances, setImportableInstances] = useState<ImportableLauncherInstance[]>([])
   const [selectedImportIds, setSelectedImportIds] = useState<string[]>([])
   const [importingInstances, setImportingInstances] = useState(false)
@@ -102,7 +100,7 @@ export function OnboardingModal({ selectedTheme, onSelectTheme, onFinish, onSkip
   const anyLoginLoading = elyByLoading || microsoftLoading
   const isLastStep = stepIndex === steps.length - 1
   const currentStep = steps[stepIndex]
-  const STEP_ICONS = [IconRocket, IconRocket, IconRocket, IconRocket, IconPuzzle, IconRocket]
+  const STEP_ICONS = [IconRocket, IconRocket, IconRocket, IconRocket, IconRocket]
   const CurrentStepIcon = STEP_ICONS[stepIndex] ?? IconRocket
 
   const canProceed = useMemo(() => {
@@ -110,8 +108,7 @@ export function OnboardingModal({ selectedTheme, onSelectTheme, onFinish, onSkip
     if (stepIndex === 1) return Boolean(selectedTheme)
     if (stepIndex === 2) return true
     if (stepIndex === 3) return accounts.length > 0
-    if (stepIndex === 4) return true
-    if (stepIndex === 5) {
+    if (stepIndex === 4) {
       const minMb = memoryToMb(memoryMin)
       const maxMb = memoryToMb(memoryMax)
       return minMb > 0 && maxMb >= minMb
@@ -188,7 +185,6 @@ export function OnboardingModal({ selectedTheme, onSelectTheme, onFinish, onSkip
     setError("")
     try {
       await persistLauncherSettings()
-      await window.electronAPI?.installBundledMods?.(selectedMods)
       onFinish()
     }
     catch (e) { setError(e instanceof Error ? e.message : copy.errors.settingsFailed) }
@@ -203,8 +199,7 @@ export function OnboardingModal({ selectedTheme, onSelectTheme, onFinish, onSkip
       case 1: return <StepTheme selectedTheme={selectedTheme} onSelect={persistTheme} />
       case 2: return <StepImport copy={copy} importableInstances={importableInstances} selectedImportIds={selectedImportIds} activeFilter={activeFilter} importingInstances={importingInstances} importedCount={importedCount} onToggle={toggleImportSelection} onFilterSource={filterSource} onImport={importSelectedInstances} />
       case 3: return <StepAccount copy={copy} accounts={accounts as any} anyLoginLoading={anyLoginLoading} getAvatarUrl={getAvatarUrl} setActiveAccount={setActiveAccount} onProviderLogin={handleProviderLogin} />
-      case 4: return <StepMods onModsChange={setSelectedMods} />
-      case 5: return <StepMemory copy={copy} memoryMin={memoryMin} memoryMax={memoryMax} onChange={(min, max) => { setMemoryMin(min); setMemoryMax(max) }} onError={setError} />
+      case 4: return <StepMemory copy={copy} memoryMin={memoryMin} memoryMax={memoryMax} onChange={(min, max) => { setMemoryMin(min); setMemoryMax(max) }} onError={setError} />
       default: return null
     }
   }
@@ -221,7 +216,7 @@ export function OnboardingModal({ selectedTheme, onSelectTheme, onFinish, onSkip
                 <CurrentStepIcon className="h-5 w-5" strokeWidth={1.8} />
               </div>
               <div className="min-w-0">
-                <h2 className="text-xl font-semibold text-foreground">Первоначальная настройка</h2>
+                <h2 className="text-xl font-semibold text-foreground">РџРµСЂРІРѕРЅР°С‡Р°Р»СЊРЅР°СЏ РЅР°СЃС‚СЂРѕР№РєР°</h2>
                 <p className="mt-1 text-sm text-muted-foreground">{currentStep.description}</p>
               </div>
             </div>
@@ -232,7 +227,7 @@ export function OnboardingModal({ selectedTheme, onSelectTheme, onFinish, onSkip
           </div>
           <div className="mt-3 flex items-center justify-between gap-3">
             <div className="text-sm text-muted-foreground">
-              Шаг {stepIndex + 1} из {steps.length}
+              РЁР°Рі {stepIndex + 1} РёР· {steps.length}
             </div>
           </div>
           <div className="mt-4">

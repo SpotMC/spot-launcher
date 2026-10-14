@@ -31,6 +31,16 @@ check_csrf();
 $channel = (($_POST['channel'] ?? '') === 'beta') ? 'beta' : 'stable';
 $targetDir = $channel === 'beta' ? UPDATES_DIR . '-beta' : UPDATES_DIR;
 
+$platformRaw = strtolower(trim((string)($_POST['platform'] ?? '')));
+$platform = 'windows';
+if ($platformRaw === 'mac' || $platformRaw === 'macos') {
+    $platform = 'macos';
+} elseif ($platformRaw === 'linux') {
+    $platform = 'linux';
+} elseif ($platformRaw === 'windows') {
+    $platform = 'windows';
+}
+
 if (!is_dir($targetDir)) @mkdir($targetDir, 0755, true);
 
 if (empty($_FILES['file']) || ($_FILES['file']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
@@ -52,6 +62,17 @@ if (!is_uploaded_file($tmp)) {
 $ext = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
 if (!in_array($ext, ALLOWED_EXT, true)) {
     json_out(['ok' => false, 'error' => 'Недопустимое расширение: .' . $ext . '. Разрешено: ' . implode(', ', ALLOWED_EXT) . '.'], 400);
+}
+
+// Инфер по имени файла, если не выбрана явно
+if ($platform === 'windows' && ($ext === 'exe' || stripos($origName, 'mac') === false && stripos($origName, 'linux') === false)) {
+    // keep windows
+}
+if (($ext === 'dmg' || $ext === 'pkg' || stripos($origName, 'mac') !== false) && $platform !== 'macos') {
+    $platform = 'macos';
+}
+if (($ext === 'appimage' || $ext === 'AppImage' || $ext === 'deb' || $ext === 'rpm' || $ext === 'tar.xz' || $ext === 'xz' || $ext === 'zst' || stripos($origName, 'linux') !== false) && $platform !== 'linux' && $platform !== 'macos') {
+    $platform = 'linux';
 }
 
 // Оставляем исходное имя (electron-updater ожидает точные имена из latest.yml).
@@ -76,8 +97,8 @@ if ($ext === 'exe') {
 }
 
 $db = db();
-$db->prepare("INSERT INTO updates (filename, version, size, sha256, uploaded_at, notes) VALUES (?,?,?,?,?,?)")
-    ->execute([$safeName, $version, $size, $sha, now_ts(), (string)($_POST['notes'] ?? '')]);
+$db->prepare("INSERT INTO updates (filename, version, size, sha256, uploaded_at, notes, platform) VALUES (?,?,?,?,?,?,?)")
+    ->execute([$safeName, $version, $size, $sha, now_ts(), (string)($_POST['notes'] ?? ''), $platform]);
 
 json_out([
     'ok' => true,
