@@ -255,6 +255,19 @@ export function useBuilds() {
     }
     setBuilds(prev => [newBuild, ...prev])
     setActiveBuildId(id)
+
+    // Сразу после создания сборки запускаем подготовку (скачивание версии,
+    // библиотек и модов) без запуска игры — чтобы первый запуск был быстрым.
+    void window.electronAPI?.prepareBuild?.({
+      version: newBuild.version,
+      modLoader: newBuild.modLoader as "vanilla" | "forge" | "fabric" | "quilt" | "liteloader" | "optifine" | "neoforge",
+      ...(newBuild.loaderVersion ? { loaderVersion: newBuild.loaderVersion } : {}),
+      account: { type: "offline", username: "" },
+      memory: { min: "512M", max: "4G" },
+      buildName: newBuild.name,
+      buildId: newBuild.id,
+      gameDir: newBuild.intentPath || undefined,
+    }).catch(() => {})
   }, [])
 
   const deleteBuild = useCallback(async (id: string) => {

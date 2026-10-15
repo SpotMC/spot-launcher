@@ -231,6 +231,7 @@ export interface IpcInvokeMap {
   "minecraft:get-game-dir": { args: []; return: string }
   "minecraft:get-auth": { args: []; return: AuthSession | null }
   "minecraft:launch": { args: [params: MinecraftLaunchParams]; return: { success: boolean; error?: string } }
+  "minecraft:prepare-build": { args: [params: MinecraftLaunchParams]; return: { success: boolean; pid?: number; error?: string } }
   "minecraft:stop": { args: []; return: void }
   "minecraft:is-running": { args: []; return: boolean }
 
@@ -449,6 +450,7 @@ export interface ElectronAPIExplicit {
   getGameDir: () => Promise<string>
   getAuth: () => Promise<AuthSession | null>
   launchMinecraft: (params: MinecraftLaunchParams) => Promise<{ success: boolean; error?: string }>
+  prepareBuild: (params: MinecraftLaunchParams) => Promise<{ success: boolean; pid?: number; error?: string }>
   stopMinecraft: () => Promise<void>
   isMinecraftRunning: () => Promise<boolean>
   onMinecraftProgress: (callback: (progress: MinecraftProgress) => void) => CleanupFn

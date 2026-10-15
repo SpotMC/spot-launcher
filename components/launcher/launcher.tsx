@@ -16,6 +16,7 @@ import { LaunchOverlay } from "./launch/launch-overlay"
 import { applyTheme, presetThemes } from "./settings/data"
 import { useAccounts } from "@/src/AccountsContext"
 import { BuildsProvider } from "@/src/BuildsContext"
+import { UpdateDialog } from "./update-dialog"
 
 interface LauncherProps {
   onReady?: () => void
@@ -103,7 +104,7 @@ export function Launcher({ onReady }: LauncherProps) {
           )}
         </div>
       )}
-      <LaunchOverlay />
+      <UpdateDialog />
     </JavaGate>
   )
 }
