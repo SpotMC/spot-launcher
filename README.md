@@ -49,15 +49,10 @@ git push origin v4.0.0
 
 Артефакты соберутся для Windows, macOS и Linux параллельно.
 
-## Обновления
-
-Лаунчер сам проверяет обновления и скачивает их в фоне. Канал выбирается в настройках: `Stable` для всех или `Beta` для ранних сборок.
-
-Обновления публикуются в `https://admin.nexus-manage.ru/updates` (stable) и `/updates-beta` (beta). Для macOS electron-updater ожидает `latest-mac.yml` и `*-mac-*.zip`.
 
 ## Требования
 
-- Java 21 LTS — ставится автоматически
+- Java 25 LTS
 - Windows 10+, macOS 11+, Linux с glibc 2.31+
 
 ## Лицензия
