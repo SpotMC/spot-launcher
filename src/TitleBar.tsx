@@ -180,6 +180,14 @@ export function TitleBar() {
                           </span>
                         </div>
                         <p className="mt-0.5 text-[11px] leading-4 text-white/40">{notification.message}</p>
+                        {notification.itemName && (
+                          <p
+                            className="mt-0.5 truncate text-[10px] text-white/25"
+                            title={notification.itemName}
+                          >
+                            {notification.itemName}
+                          </p>
+                        )}
 
                         {typeof notification.progress === "number" && (
                           <div className="mt-2">

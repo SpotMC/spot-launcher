@@ -1,6 +1,5 @@
 try { require("dotenv/config") } catch {}
 import "./auth"
-import { autoRefreshMicrosoftAccounts } from "./microsoft-token"
 import "./discord-rpc"
 
 import { registerModsHandlers } from "./mods"
@@ -17,7 +16,6 @@ import { registerQuickPlayHandlers } from "./quick-play"
 import { registerUpdater } from "./updater"
 import { registerSkinsHandlers } from "./skins"
 import { registerJavaHandlers } from "./java"
-import { app } from "electron"
 
 registerWindowLifecycle()
 registerSystemHandlers()
@@ -34,14 +32,5 @@ registerP2PHandlers()
 registerQuickPlayHandlers()
 registerUpdater()
 registerSkinsHandlers()
-
-const MICROSOFT_REFRESH_INTERVAL_MS = 4 * 60 * 60 * 1000
-
-app.whenReady().then(async () => {
-  await autoRefreshMicrosoftAccounts()
-  setInterval(() => {
-    void autoRefreshMicrosoftAccounts()
-  }, MICROSOFT_REFRESH_INTERVAL_MS)
-})
 
 import("@spot/mods").catch(() => {})

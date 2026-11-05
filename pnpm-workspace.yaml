@@ -1,5 +1,10 @@
 packages:
-  - "packages/*"
+  - "packages/spot-*"
+
+# The launcher depends only on @spot/* workspace packages. Legacy @xnlc/*
+# duplicates live in packages/xnlc-* but are not part of the workspace: their
+# @xnlc/types dependency points to a private registry, which breaks installs.
+verifyDepsBeforeRun: false
 
 allowBuilds:
   cpu-features: true

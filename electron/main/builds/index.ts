@@ -20,6 +20,7 @@ import {
   getInstancesRoot,
   loadInstancesRoot,
   downloadBuffer,
+  downloadBufferToFile,
   sanitizeFileName,
   sanitizeRelativeContentPath,
   getContentDirectoryName,
@@ -406,7 +407,7 @@ export function registerBuildHandlers() {
         await fs.mkdir(targetDir, { recursive: true }).catch(() => {})
         const safeFileName = sanitizeFileName(fileName)
         const filePath = path.join(targetDir, safeFileName)
-        await fs.writeFile(filePath, await downloadBuffer(url))
+        await downloadBufferToFile(url, filePath)
         return { success: true, filePath }
       } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : String(error) }
@@ -467,7 +468,7 @@ export function registerBuildHandlers() {
             const url = f.downloads?.[0]
             if (!url) throw new Error(`Не найдена ссылка для ${currentFileName}`)
             sendImportProgress(downloaded, totalFiles, "Скачивание файла...", currentFileName)
-            await fs.writeFile(filePath, await downloadBuffer(url, signal, currentFileName))
+            await downloadBufferToFile(url, filePath, signal, currentFileName)
           }
         } catch (error) {
           if (isImportCancelledError(error)) {
@@ -541,9 +542,9 @@ export function registerBuildHandlers() {
           if (!fileUrl) throw new Error(`Не получена ссылка для ${fileName}`)
           fileName = fileUrl.split("/").pop()?.split("?")[0] ?? fileName
           sendImportProgress(downloaded, totalFiles, "Скачивание мода...", fileName)
-          const filePath = path.join(modsDir, fileName)
+          const filePath = path.join(modsDir, sanitizeFileName(fileName))
           try { await fs.access(filePath) } catch {
-            await fs.writeFile(filePath, await downloadBuffer(fileUrl, signal, fileName))
+            await downloadBufferToFile(fileUrl, filePath, signal, fileName)
           }
         } catch (error) {
           if (isImportCancelledError(error)) {
@@ -610,7 +611,7 @@ export function registerBuildHandlers() {
         const fileName = filePath.split("/").pop() ?? "file"
         try {
           throwIfImportCancelled(signal)
-          const targetPath = path.join(intentPath, filePath)
+          const targetPath = path.join(intentPath, sanitizeRelativeContentPath(filePath))
           try { await fs.access(targetPath) } catch {
             let url = f.url ?? ""
             if (!url && f.curseforge) {
@@ -622,7 +623,7 @@ export function registerBuildHandlers() {
             }
             await fs.mkdir(path.dirname(targetPath), { recursive: true }).catch(() => {})
             sendImportProgress(downloaded, totalFiles, "Скачивание файла...", fileName)
-            await fs.writeFile(targetPath, await downloadBuffer(url, signal, fileName))
+            await downloadBufferToFile(url, targetPath, signal, fileName)
           }
         } catch (error) {
           if (isImportCancelledError(error)) {
@@ -696,14 +697,15 @@ export function registerBuildHandlers() {
         const tasks = files.map((f: ModrinthManifestFile) => async () => {
           const currentFileName = path.basename(f.path ?? "")
           try {
+            throwIfImportCancelled(signal)
             const fileDir = path.join(intentPath, path.dirname(f.path ?? ""))
-            const filePath = path.join(intentPath, f.path ?? "")
+            const filePath = path.join(fileDir, currentFileName)
             await fs.mkdir(fileDir, { recursive: true }).catch(() => {})
             try { await fs.access(filePath) } catch {
               const url = f.downloads?.[0]
               if (!url) throw new Error(`Не найдена ссылка для ${currentFileName}`)
               sendImportProgress(downloaded, totalFiles, "Скачивание файла...", currentFileName)
-              await fs.writeFile(filePath, await downloadBuffer(url, signal, currentFileName))
+              await downloadBufferToFile(url, filePath, signal, currentFileName)
             }
           } catch (error) {
             if (isImportCancelledError(error)) {
@@ -771,14 +773,15 @@ export function registerBuildHandlers() {
         const tasks = files.map((f: CurseForgeManifestFile) => async () => {
           let fileName = `mod-${f.fileID}.jar`
           try {
+            throwIfImportCancelled(signal)
             const mods = await loadModsModule()
             const fileUrl = await mods.curseforgeGetDownloadUrl(f.projectID!, f.fileID!)
             if (!fileUrl) throw new Error(`Не получена ссылка для ${fileName}`)
             fileName = fileUrl.split("/").pop()?.split("?")[0] ?? fileName
             sendImportProgress(downloaded, totalFiles, "Скачивание мода...", fileName)
-            const filePath = path.join(modsDir, fileName)
+            const filePath = path.join(modsDir, sanitizeFileName(fileName))
             try { await fs.access(filePath) } catch {
-              await fs.writeFile(filePath, await downloadBuffer(fileUrl, signal, fileName))
+              await downloadBufferToFile(fileUrl, filePath, signal, fileName)
             }
           } catch (error) {
             if (isImportCancelledError(error)) {

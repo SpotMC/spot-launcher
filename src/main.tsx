@@ -7,7 +7,7 @@ import '@fontsource/inter/600.css'
 import '@fontsource/inter/700.css'
 import '@fontsource/unbounded/600.css'
 import '@fontsource/unbounded/700.css'
-import { hideSplash } from "./splash"
+import { finishBoot, hideSplash } from "./splash"
 import { initI18n } from "./i18n"
 import './index.css'
 
@@ -21,8 +21,13 @@ if (new URLSearchParams(window.location.search).get('win') === 'legal') {
     hideSplash()
   })
 } else {
-  rootEl.render(<App />)
   window.addEventListener('app:hydrated', () => {
-    hideSplash()
+    finishBoot()
   }, { once: true })
+  void initI18n().then(() => {
+    rootEl.render(<App />)
+  }).catch((error) => {
+    console.error("[Startup] Failed to initialize translations:", error)
+    rootEl.render(<App />)
+  })
 }

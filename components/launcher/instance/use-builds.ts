@@ -108,6 +108,8 @@ export function useBuilds() {
       const dbBuilds = await window.electronAPI?.loadBuilds()
       if (!dbBuilds?.length) {
         setBuilds([])
+        setBuildsHydrated(true)
+        window.dispatchEvent(new Event("app:hydrated"))
         return
       }
 
@@ -134,8 +136,10 @@ export function useBuilds() {
         return normalized
       })
 
-      // Устанавливаем сборки сразу — UI отрисовывается без ожидания сканирования
+      // Устанавливаем сборки сразу — UI и splash не ждут сканирования диска.
       setBuilds(processed)
+      setBuildsHydrated(true)
+      window.dispatchEvent(new Event("app:hydrated"))
 
       // Синхронизация контента в фоне — обновляет сборки по мере готовности.
       // Гвардия поколений: если с момента старта был запущен новый reload,
@@ -145,12 +149,7 @@ export function useBuilds() {
         const synced = await syncBuildContent(normalized)
         if (seq !== reloadSeqRef.current) return
         setBuilds(prev => prev.map(b => b.id === synced.id ? synced : b))
-      })).then(() => {
-        if (seq !== reloadSeqRef.current) return
-        // Сигнализируем что первичная загрузка завершена — splash можно убрать
-        setBuildsHydrated(true)
-        window.dispatchEvent(new Event("app:hydrated"))
-      })
+      }))
 
       // Enrich Modrinth names/authors in the background — don't block the
       // initial render with network requests. Results are cached module-wide

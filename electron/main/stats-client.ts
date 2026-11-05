@@ -143,7 +143,7 @@ export async function stopStatsSession(sendLeave = true): Promise<void> {
  * Отправка события при старте самого лаунчера (приложение открылось).
  * Идёт сразу, ещё до запуска игры.
  */
-export async function reportLauncherStarted(): Promise<void> {
+export async function reportLauncherStarted(version = ""): Promise<void> {
   const { url, secret } = await getConfig()
   if (!url || !secret) return
 
@@ -160,6 +160,9 @@ export async function reportLauncherStarted(): Promise<void> {
   const body = JSON.stringify({
     event: "launcher_start",
     nick,
+    os: process.platform,
+    arch: process.arch,
+    version,
     started_at: parseInt(ts, 10),
   })
   const sig = crypto.createHmac("sha256", secret).update(`${ts}.${body}`).digest("hex")

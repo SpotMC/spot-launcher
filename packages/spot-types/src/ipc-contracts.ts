@@ -375,6 +375,7 @@ export interface ElectronAPIExplicit {
   maximize: () => void
   close: () => void
   isMaximized: () => Promise<boolean>
+  notifyUiReady: () => void
   loginElyBy: () => Promise<AuthPayload>
   loginMicrosoft: () => Promise<AuthPayload>
   startElyByDeviceCode: () => Promise<{

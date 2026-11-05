@@ -80,7 +80,17 @@ export function useImport(setBuilds: React.Dispatch<React.SetStateAction<Build[]
   useEffect(() => {
     const off = window.electronAPI?.onContentDownloadProgress?.((progress) => {
       if (!activeImportSourceRef.current) return
-      safeSetImportProgress(prev => prev ? { ...prev, fileCurrent: progress.current, fileTotal: progress.total } : prev)
+      safeSetImportProgress(prev => {
+        if (!prev) return prev
+        // Прогресс может прийти уже после перехода к следующему файлу — не смешиваем их.
+        if (prev.itemName && progress.fileName && prev.itemName !== progress.fileName) return prev
+        return {
+          ...prev,
+          fileCurrent: progress.current,
+          fileTotal: progress.total,
+          itemName: prev.itemName ?? progress.fileName,
+        }
+      })
     })
     return () => off?.()
   }, [safeSetImportProgress])
@@ -125,6 +135,19 @@ export function useImport(setBuilds: React.Dispatch<React.SetStateAction<Build[]
   const cancelImport = useCallback(async () => {
     if (!importProgress) return
 
+    // Импорт уже завершился ошибкой — кнопка работает как «Закрыть».
+    if (importError) {
+      activeImportSourceRef.current = null
+      safeSetImportError(null)
+      safeSetImportProgress(null)
+      if (isMountedRef.current) {
+        setDownloadingSlug(null)
+        setCfDownloadingId(null)
+        setFtbDownloadingId(null)
+      }
+      return
+    }
+
     const source = activeImportSourceRef.current ?? importProgress.source
     setIsCancellingImport(true)
     try {
@@ -148,7 +171,7 @@ export function useImport(setBuilds: React.Dispatch<React.SetStateAction<Build[]
         setIsCancellingImport(false)
       }
     }
-  }, [finishImportSession, importProgress, pushNotification, safeSetImportError, safeSetImportProgress])
+  }, [finishImportSession, importError, importProgress, pushNotification, safeSetImportError, safeSetImportProgress])
 
   const importModrinthProject = useCallback(async (project: ModSearchResult, versionId?: string) => {
     beginImportSession("modrinth")

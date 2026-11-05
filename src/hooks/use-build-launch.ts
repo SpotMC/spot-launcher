@@ -194,11 +194,11 @@ export function useBuildLaunch({ account }: { account?: Account }) {
     const launchError = resolveLaunchErrorMessage(result.error, t, "Ошибка запуска")
     patchLaunchUi(result.success
       ? { isLaunching: false, phase: "idle", progress: 100, status: t("launcherStatus.running") }
-      : { isLaunching: false, status: launchError })
+      : { isLaunching: false, phase: "idle", progress: null, status: launchError })
     if (!result.success) addLog(`[Лаунчер] ${launchError}`, "error")
     if (result.success) {
       setIsRunning(true)
-      saveLastLaunchedPrefs(build.name, "instance")
+      saveLastLaunchedPrefs(build.version, build.modLoader, build.loaderVersion)
     }
   }, [account, addLog, clearLogs, patchLaunchUi, setIsRunning, t])
 

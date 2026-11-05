@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { useTranslation } from "react-i18next"
 import { useActivityCenter } from "./ActivityCenterContext"
 import { getStageLabel, INITIAL_LAUNCH_UI_STATE, LAUNCH_RE, RUNNING_RE, type LaunchUiState } from "@/lib/home-page-shared"
+import { formatBytes } from "@/lib/format-bytes"
 
 export type LogLevel = "info" | "warn" | "error" | "debug" | "game" | "launcher"
 
@@ -208,21 +209,29 @@ export function LaunchLogsProvider({ children }: PropsWithChildren) {
       return
     }
 
+    const status = launchUi.status || "Подготовка к запуску..."
+    const bytes = typeof launchUi.downloadedBytes === "number" && typeof launchUi.totalBytes === "number" && launchUi.totalBytes > 0
+      ? `${formatBytes(launchUi.downloadedBytes)} / ${formatBytes(launchUi.totalBytes)}`
+      : null
+
     upsertLiveNotification("minecraft-launch", {
       kind: "progress",
       source: "launch",
-      title: launchUi.phase === "installing" ? "Minecraft setup in progress" : "Minecraft launch in progress",
-      message: launchUi.status || "Preparing launcher activity...",
+      title: launchUi.phase === "installing" ? "Установка Minecraft" : "Запуск Minecraft",
+      message: bytes ? `${status} · ${bytes}` : status,
       progress: typeof launchUi.progress === "number" ? Math.max(0, Math.min(100, Math.round(launchUi.progress))) : null,
       itemName: launchUi.currentFileName ?? null,
       busy: true,
     })
   }, [
     launchUi.currentFileName,
+    launchUi.downloadedBytes,
     launchUi.isLaunching,
     launchUi.phase,
     launchUi.progress,
     launchUi.status,
+    launchUi.totalBytes,
+    launchUi.totalFiles,
     removeLiveNotification,
     upsertLiveNotification,
   ])

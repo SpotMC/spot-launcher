@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type PropsWithChildren } from "react"
+import { formatBytes } from "@/lib/format-bytes"
 
 export type ActivityNotificationKind = "info" | "success" | "error" | "progress"
 export type ActivityNotificationSource = "launch" | "import"
@@ -74,6 +75,7 @@ export function ActivityCenterProvider({ children }: PropsWithChildren) {
   const [isOpen, setIsOpen] = useState(false)
   const [importSessionSource, setImportSessionSource] = useState<ImportSessionSource | null>(null)
   const importSessionSourceRef = useRef<ImportSessionSource | null>(null)
+  const importPercentRef = useRef(0)
 
   const markAllRead = useCallback(() => {
     setNotifications((prev) => prev.map((item) => (item.read ? item : { ...item, read: true })))
@@ -109,11 +111,13 @@ export function ActivityCenterProvider({ children }: PropsWithChildren) {
 
   const startImportSession = useCallback((source: ImportSessionSource) => {
     importSessionSourceRef.current = source
+    importPercentRef.current = 0
     setImportSessionSource(source)
   }, [])
 
   const clearImportSession = useCallback(() => {
     importSessionSourceRef.current = null
+    importPercentRef.current = 0
     setImportSessionSource(null)
     removeLiveNotification("modpack-import")
   }, [removeLiveNotification])
@@ -125,6 +129,7 @@ export function ActivityCenterProvider({ children }: PropsWithChildren) {
       const total = Math.max(progress.total, 1)
       const current = Math.max(0, Math.min(progress.current, total))
       const percent = Math.max(0, Math.min(100, Math.round((current / total) * 100)))
+      importPercentRef.current = percent
       upsertLiveNotification("modpack-import", {
         kind: "progress",
         source: "import",
@@ -132,6 +137,30 @@ export function ActivityCenterProvider({ children }: PropsWithChildren) {
         message: progress.message,
         progress: percent,
         itemName: progress.itemName ?? null,
+        busy: true,
+      })
+    })
+
+    return () => off?.()
+  }, [upsertLiveNotification])
+
+  // Байтовый прогресс текущего файла: приходит чаще, чем import:progress,
+  // поэтому дополняем live-уведомление объёмом загрузки.
+  useEffect(() => {
+    const off = window.electronAPI?.onContentDownloadProgress?.((progress) => {
+      const source = importSessionSourceRef.current
+      if (!source) return
+      const total = progress.total > 0 ? progress.total : 0
+      const bytes = total > 0
+        ? `${formatBytes(progress.current)} / ${formatBytes(total)}`
+        : formatBytes(progress.current)
+      upsertLiveNotification("modpack-import", {
+        kind: "progress",
+        source: "import",
+        title: getImportTitle(source),
+        message: bytes,
+        progress: importPercentRef.current,
+        itemName: progress.fileName || null,
         busy: true,
       })
     })

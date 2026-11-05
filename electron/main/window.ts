@@ -4,17 +4,44 @@ import { isDev, setMainWindow, getMainWindow, logRuntime, logRuntimeDebug, initR
 import { initDatabase } from "../db"
 import { loadInstancesRoot } from "./builds/helpers"
 import { reportLauncherStarted } from "./stats-client"
+import { autoRefreshMicrosoftAccounts } from "./microsoft-token"
+
+const SPLASH_SIZE = { width: 420, height: 500 }
+const MAIN_SIZE = { width: 1280, height: 800 }
+const MAIN_MIN = { width: 960, height: 640 }
+const MICROSOFT_REFRESH_INTERVAL_MS = 4 * 60 * 60 * 1000
+
+let mainRevealed = false
+
+function revealMainWindow() {
+  if (mainRevealed) return
+  mainRevealed = true
+  const win = getMainWindow()
+  if (!win || win.isDestroyed()) return
+  logRuntime("[Window] reveal main")
+  win.setResizable(true)
+  win.setMaximizable(true)
+  win.setFullScreenable(true)
+  win.setMinimumSize(MAIN_MIN.width, MAIN_MIN.height)
+  win.setSize(MAIN_SIZE.width, MAIN_SIZE.height)
+  win.center()
+  if (!win.isVisible()) win.show()
+  win.focus()
+}
 
 export function createWindow() {
   logRuntime("[Window] Creating browser window")
+  mainRevealed = false
   const win = new BrowserWindow({
-    width: 1280,
-    height: 800,
-    minWidth: 960,
-    minHeight: 640,
+    width: SPLASH_SIZE.width,
+    height: SPLASH_SIZE.height,
+    resizable: false,
+    maximizable: false,
+    fullscreenable: false,
     frame: false,
     show: false,
-    backgroundColor: "#2b2d35",
+    center: true,
+    backgroundColor: "#0c0d10",
     titleBarStyle: "hidden",
     roundedCorners: true,
     webPreferences: {
@@ -57,7 +84,7 @@ export function createWindow() {
 
   win.once("ready-to-show", () => {
     logRuntime("[Window] ready-to-show")
-    getMainWindow()?.show()
+    if (!mainRevealed) getMainWindow()?.show()
   })
 
   win.webContents.on("did-finish-load", () => {
@@ -139,6 +166,11 @@ export function registerWindowLifecycle() {
 
   ipcMain.handle("window:is-maximized", () => getMainWindow()?.isMaximized() ?? false)
 
+  ipcMain.on("window:ui-ready", () => {
+    logRuntime("[Window] ui-ready")
+    revealMainWindow()
+  })
+
   ipcMain.on("window:minimize", () => getMainWindow()?.minimize())
 
   ipcMain.on("window:maximize", () => {
@@ -163,11 +195,15 @@ export function registerWindowLifecycle() {
     try {
       await initDatabase()
       logRuntime("[App] database initialized")
+      void autoRefreshMicrosoftAccounts()
+      setInterval(() => {
+        void autoRefreshMicrosoftAccounts()
+      }, MICROSOFT_REFRESH_INTERVAL_MS)
     } catch (error) {
       logRuntime(`[App] database init failed: ${error instanceof Error ? error.stack ?? error.message : String(error)}`)
     }
     // Сообщить на сайт, что лаунчер запустился (fire-and-forget).
-    void reportLauncherStarted()
+    void reportLauncherStarted(app.getVersion())
     try {
       await loadInstancesRoot()
     } catch {}

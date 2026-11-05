@@ -5,7 +5,7 @@ import { LaunchLogsProvider } from "./LaunchLogsContext"
 import { AccountsProvider } from './AccountsContext'
 import { TitleBar } from './TitleBar'
 import { initI18n } from './i18n'
-import { updateSplash, hideSplash } from './splash'
+import { updateSplash, finishBoot } from './splash'
 
 export function App() {
   const [modulesReady, setModulesReady] = useState(false)
@@ -18,6 +18,9 @@ export function App() {
   useEffect(() => {
     let cancelled = false
     void initI18n().then(() => {
+      if (cancelled) return
+      setModulesReady(true)
+    }).catch(() => {
       if (cancelled) return
       setModulesReady(true)
     })
@@ -34,15 +37,15 @@ export function App() {
     updateSplash({ step: "builds", status: "Подготовка интерфейса...", progress: 80 })
     const id = window.setTimeout(() => {
       updateSplash({ step: "ready", status: "Готово", progress: 100 })
-      window.setTimeout(hideSplash, 220)
-    }, 350)
+      window.setTimeout(finishBoot, 220)
+    }, 280)
     return () => window.clearTimeout(id)
   }, [launcherReady])
 
   useEffect(() => {
     const onHydrated = () => {
       updateSplash({ step: "ready", status: "Готово", progress: 100 })
-      window.setTimeout(hideSplash, 220)
+      window.setTimeout(finishBoot, 180)
     }
     window.addEventListener("app:hydrated", onHydrated)
     return () => window.removeEventListener("app:hydrated", onHydrated)

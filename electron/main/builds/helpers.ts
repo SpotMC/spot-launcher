@@ -4,7 +4,6 @@ import fs from "fs/promises"
 import { sendToRenderer } from "../runtime"
 import { dbHelpers } from "../../db"
 import { ensureSharedGameLinksSync } from "../shared-game-cache"
-import { fetchWithRetry } from "@spot/core/retry"
 
 export function getBaseDataRoot(): string {
   if (process.platform === "win32") return path.join(app.getPath("appData"), "spotlauncher")
@@ -57,30 +56,273 @@ export async function ensureBuildIntentDir(dirName: string): Promise<string> {
   return intentPath
 }
 
-export async function downloadBuffer(url: string, signal?: AbortSignal, progressFileName?: string): Promise<Buffer> {
-  const res = await fetchWithRetry(url, { signal })
-  if (!res.ok) throw new Error(`HTTP ${res.status}: ${url}`)
+// ── Загрузка файлов ─────────────────────────────────────────
+// Серверы модпаков регулярно отвечают 429/5xx при массовой загрузке и рвут
+// соединение на середине файла. Поэтому: повторяем запрос с бэкоффом (учитывая
+// Retry-After), пишем потоком во временный файл и только по завершении
+// переименовываем его в целевой путь.
 
-  if (progressFileName && res.body) {
-    const totalHeader = Number(res.headers.get("content-length") || 0)
+const RETRYABLE_HTTP_STATUS = new Set([408, 425, 429, 500, 502, 503, 504])
+const DOWNLOAD_MAX_RETRIES = 3
+const PROGRESS_THROTTLE_MS = 100
+const IDLE_TIMEOUT_MS = 60_000
+const RETRYABLE_NETWORK_CODES = new Set([
+  "ECONNRESET",
+  "ECONNREFUSED",
+  "ETIMEDOUT",
+  "EPIPE",
+  "ENOTFOUND",
+  "EAI_AGAIN",
+  "UND_ERR_SOCKET",
+  "UND_ERR_CONNECT_TIMEOUT",
+  "UND_ERR_HEADERS_TIMEOUT",
+  "UND_ERR_BODY_TIMEOUT",
+])
+
+type HttpDownloadError = Error & { status: number; retryable: boolean; waitMs?: number }
+
+function isAbortError(error: unknown): boolean {
+  return (error instanceof DOMException && error.name === "AbortError")
+    || (error instanceof Error && error.name === "AbortError")
+}
+
+function createAbortError(): Error {
+  const error = new Error("Загрузка отменена")
+  error.name = "AbortError"
+  return error
+}
+
+function delay(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(createAbortError())
+      return
+    }
+    const cleanup = () => {
+      clearTimeout(timer)
+      signal?.removeEventListener("abort", onAbort)
+    }
+    const onAbort = () => {
+      cleanup()
+      reject(createAbortError())
+    }
+    const timer = setTimeout(() => {
+      cleanup()
+      resolve()
+    }, ms)
+    signal?.addEventListener("abort", onAbort, { once: true })
+  })
+}
+
+function downloadBackoffMs(attempt: number): number {
+  return Math.min(30_000, 750 * 2 ** attempt) + Math.round(Math.random() * 250)
+}
+
+function parseRetryAfter(value: string | null): number | undefined {
+  const trimmed = value?.trim()
+  if (!trimmed) return undefined
+  const seconds = Number(trimmed)
+  if (Number.isFinite(seconds)) return Math.max(0, Math.min(60_000, seconds * 1000))
+  const date = Date.parse(trimmed)
+  if (!Number.isNaN(date)) return Math.max(0, Math.min(60_000, date - Date.now()))
+  return undefined
+}
+
+function isRetryableNetworkError(error: unknown): boolean {
+  if (error instanceof TypeError) return true
+  if (error instanceof Error) {
+    if (error.name === "TimeoutError" || error.name === "NetworkError") return true
+    const code = (error as { code?: unknown }).code
+    if (typeof code === "string" && RETRYABLE_NETWORK_CODES.has(code)) return true
+  }
+  return false
+}
+
+function createTimeoutError(): Error {
+  const error = new Error("Превышено время ожидания данных от сервера")
+  ;(error as { code?: string }).code = "ETIMEDOUT"
+  return error
+}
+
+/**
+ * Прерывает ожидание, если сервер не присылает данных дольше IDLE_TIMEOUT_MS.
+ * onTimeout должен закрыть соединение (abort/reader.cancel), чтобы запрос не остался висеть.
+ */
+function withIdleTimeout<T>(promise: Promise<T>, onTimeout: () => void): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    let settled = false
+    const timer = setTimeout(() => {
+      if (settled) return
+      settled = true
+      onTimeout()
+      reject(createTimeoutError())
+    }, IDLE_TIMEOUT_MS)
+
+    promise.then(
+      (value) => {
+        if (settled) return
+        settled = true
+        clearTimeout(timer)
+        resolve(value)
+      },
+      (error) => {
+        if (settled) return
+        settled = true
+        clearTimeout(timer)
+        reject(error)
+      },
+    )
+  })
+}
+
+function createProgressReporter(fileName: string | undefined, total: number) {
+  let lastSentAt = 0
+  return (received: number, force = false) => {
+    if (!fileName || total <= 0) return
+    const now = Date.now()
+    if (!force && now - lastSentAt < PROGRESS_THROTTLE_MS) return
+    lastSentAt = now
+    sendToRenderer("content:download-progress", { fileName, current: received, total })
+  }
+}
+
+/**
+ * Выполняет загрузку с повторами. Повторяется как сам запрос (сеть, 408/425/429/5xx),
+ * так и чтение тела ответа — соединение может оборваться уже после заголовков.
+ */
+async function withDownloadRetry<T>(
+  url: string,
+  signal: AbortSignal | undefined,
+  attemptFn: (res: Response, abort: () => void) => Promise<T>,
+): Promise<T> {
+  let lastError: unknown
+  for (let attempt = 0; attempt <= DOWNLOAD_MAX_RETRIES; attempt++) {
+    throwIfImportCancelled(signal)
+    const controller = new AbortController()
+    const attemptSignal = signal ? AbortSignal.any([signal, controller.signal]) : controller.signal
+    try {
+      const res = await withIdleTimeout(fetch(url, { signal: attemptSignal }), () => controller.abort())
+      if (!res.ok) {
+        const waitMs = parseRetryAfter(res.headers.get("retry-after"))
+        await res.body?.cancel().catch(() => {})
+        const error = new Error(`HTTP ${res.status}: ${url}`) as HttpDownloadError
+        error.status = res.status
+        error.retryable = RETRYABLE_HTTP_STATUS.has(res.status)
+        error.waitMs = waitMs
+        throw error
+      }
+      return await attemptFn(res, () => controller.abort())
+    } catch (error) {
+      lastError = error
+      if (isAbortError(error) || signal?.aborted) {
+        throwIfImportCancelled(signal)
+        throw error
+      }
+      const httpError = error as Partial<HttpDownloadError>
+      const retryable = httpError.retryable ?? isRetryableNetworkError(error)
+      if (!retryable || attempt >= DOWNLOAD_MAX_RETRIES) throw error
+      const waitMs = httpError.waitMs ?? downloadBackoffMs(attempt)
+      console.warn(`[builds] Загрузка не удалась (попытка ${attempt + 1}/${DOWNLOAD_MAX_RETRIES + 1}), повтор через ${waitMs} мс: ${url}`)
+      await delay(waitMs, signal)
+    }
+  }
+  throw lastError
+}
+
+export async function downloadBuffer(url: string, signal?: AbortSignal, progressFileName?: string): Promise<Buffer> {
+  return withDownloadRetry(url, signal, async (res, abort) => {
+    const total = Number(res.headers.get("content-length") || 0)
+    const report = createProgressReporter(progressFileName, total)
+
+    if (!res.body) {
+      const data = Buffer.from(await withIdleTimeout(res.arrayBuffer(), abort))
+      report(data.length, true)
+      return data
+    }
+
     const reader = res.body.getReader()
     const chunks: Buffer[] = []
     let received = 0
     for (;;) {
-      const { done, value } = await reader.read()
+      const { done, value } = await withIdleTimeout(reader.read(), () => { void reader.cancel().catch(() => {}); abort() })
       if (done) break
-      if (value) {
-        received += value.length
-        chunks.push(Buffer.from(value))
-        if (totalHeader > 0) {
-          sendToRenderer("content:download-progress", { fileName: progressFileName, current: received, total: totalHeader })
-        }
-      }
+      if (!value || value.length === 0) continue
+      received += value.length
+      chunks.push(Buffer.from(value))
+      report(received)
     }
+    report(received, true)
     return Buffer.concat(chunks)
-  }
+  })
+}
 
-  return Buffer.from(await res.arrayBuffer())
+async function writeResponseToFile(
+  res: Response,
+  filePath: string,
+  signal: AbortSignal | undefined,
+  abort: () => void,
+  progressFileName?: string,
+): Promise<void> {
+  const total = Number(res.headers.get("content-length") || 0)
+  const report = createProgressReporter(progressFileName, total)
+  const handle = await fs.open(filePath, "w")
+  try {
+    if (!res.body) {
+      const data = Buffer.from(await withIdleTimeout(res.arrayBuffer(), abort))
+      await handle.write(data)
+      report(data.length, true)
+      return
+    }
+
+    const reader = res.body.getReader()
+    let received = 0
+    for (;;) {
+      throwIfImportCancelled(signal)
+      const { done, value } = await withIdleTimeout(reader.read(), () => { void reader.cancel().catch(() => {}); abort() })
+      if (done) break
+      if (!value || value.length === 0) continue
+      received += value.length
+      await handle.write(value)
+      report(received)
+    }
+    report(received, true)
+  } finally {
+    await handle.close().catch(() => {})
+  }
+}
+
+async function replaceFile(tempPath: string, targetPath: string): Promise<void> {
+  try {
+    await fs.rename(tempPath, targetPath)
+  } catch {
+    // Windows: rename поверх существующего файла может выдать EPERM — пробуем замену.
+    await fs.rm(targetPath, { force: true })
+    await fs.rename(tempPath, targetPath)
+  }
+}
+
+/**
+ * Скачивает файл по URL во временный файл рядом с целевым и только после
+ * успешного получения переименовывает его в конечный путь. При ошибке временный
+ * файл удаляется, поэтому битая/неполная копия модификации не остаётся на диске
+ * и не попадает в игру (а из-за этого игра и падала при загрузке).
+ */
+export async function downloadBufferToFile(
+  url: string,
+  filePath: string,
+  signal?: AbortSignal,
+  progressFileName?: string,
+): Promise<void> {
+  await withDownloadRetry(url, signal, async (res, abort) => {
+    const tempPath = `${filePath}.spot-tmp-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    try {
+      await writeResponseToFile(res, tempPath, signal, abort, progressFileName)
+      await replaceFile(tempPath, filePath)
+    } catch (error) {
+      await fs.rm(tempPath, { force: true }).catch(() => {})
+      throw error
+    }
+  })
 }
 
 export function sanitizeFileName(fileName: string): string {
@@ -95,6 +337,8 @@ export function sanitizeRelativeContentPath(fileName: string): string {
     .map(segment => segment.trim())
     .filter(Boolean)
     .map(segment => segment.replace(/[<>:"/\\|?*\u0000-\u001F]/g, "_"))
+    // Защита от выхода за пределы папки сборки через «..» в путях манифеста.
+    .filter(segment => segment !== "." && segment !== "..")
 
   if (segments.length === 0) return "download.bin"
 
@@ -114,7 +358,7 @@ export async function saveRemoteContentToIntent(dirName: string, contentType: "m
     await fs.mkdir(targetDir, { recursive: true }).catch(() => {})
     const safeFileName = sanitizeFileName(fileName)
     const filePath = path.join(targetDir, safeFileName)
-    await fs.writeFile(filePath, await downloadBuffer(url, undefined, safeFileName))
+    await downloadBufferToFile(url, filePath, undefined, safeFileName)
     return filePath
   } catch (error) {
     console.error(`[builds] Failed to save remote content "${fileName}" to "${dirName}":`, error)
@@ -275,9 +519,21 @@ export function sendImportProgress(current: number, total: number, message: stri
 
 export async function runConcurrent<T>(tasks: (() => Promise<T>)[], concurrency: number, signal?: AbortSignal): Promise<T[]> {
   const results: T[] = []
-  for (let i = 0; i < tasks.length; i += concurrency) {
-    const batch = tasks.slice(i, i + concurrency).map(fn => fn())
-    results.push(...await Promise.all(batch))
+  const batchSize = Math.max(1, concurrency)
+  for (let i = 0; i < tasks.length; i += batchSize) {
+    // После отмены не стартуем новые пачки — текущие задачи откажутся через AbortSignal.
+    throwIfImportCancelled(signal)
+    const settled = await Promise.allSettled(tasks.slice(i, i + batchSize).map(fn => fn()))
+    // Ждём завершения всех задач пачки, чтобы не оставить «висящие» загрузки,
+    // и только потом сообщаем о первой ошибке.
+    for (const item of settled) {
+      if (item.status === "fulfilled") {
+        results.push(item.value)
+      } else {
+        throw item.reason
+      }
+    }
+    throwIfImportCancelled(signal)
   }
   return results
 }

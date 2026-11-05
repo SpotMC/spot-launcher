@@ -30,48 +30,42 @@ export function LaunchOverlay() {
   return createPortal(
     <div className="absolute inset-0 z-[200] flex items-center justify-center bg-[#0a0b0e]/95 px-4">
       <div className="pointer-events-none absolute -top-32 -left-24 h-[460px] w-[520px] rounded-full bg-[#8d9ff5]/[0.06] blur-[120px]" />
-      <div className="flex w-full max-w-3xl flex-col">
-        <div className="mb-6 flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#5a6ff2]/15">
-            <span className="text-lg font-black text-[#5a6ff2]">S</span>
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-white">Spot Launcher</h1>
-            <p className="text-sm text-white/40">Загрузка и запуск игры</p>
-          </div>
+      <div className="flex w-full max-w-[420px] flex-col items-center text-center">
+        <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#5a6ff2]/15">
+          <span className="text-lg font-black text-[#5a6ff2]">S</span>
         </div>
 
-        <div className="mb-3 flex items-end justify-between gap-4">
-          <p className="truncate text-sm text-white/70">{stageText}</p>
-          {progress !== null && (
-            <span className="shrink-0 text-2xl font-black tabular-nums text-white">{progress}%</span>
+        <p className="mb-1.5 min-h-5 truncate text-sm font-medium text-white/70">{stageText}</p>
+
+        {progress !== null && (
+          <span className="mb-2.5 text-4xl font-black tabular-nums text-white">
+            {progress}
+            <span className="ml-1 text-base font-bold text-white/40">%</span>
+          </span>
+        )}
+
+        <div className="relative h-2 w-full overflow-hidden rounded-full bg-white/[0.06]">
+          {progress !== null ? (
+            <div
+              className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-[#5a6ff2] to-[#8d9ff5] transition-[width] duration-200"
+              style={{ width: `${progress}%` }}
+            />
+          ) : (
+            <div className="absolute inset-0 animate-pulse rounded-full bg-white/[0.08]" />
           )}
         </div>
 
-        <div className="mb-3 h-2.5 overflow-hidden rounded-full bg-white/[0.06]">
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-[#5a6ff2] to-[#8d9ff5] transition-[width] duration-200"
-            style={{ width: `${progress ?? 0}%` }}
-          />
-        </div>
-
-        {(launchUi.currentFile !== null && launchUi.totalFiles !== null && launchUi.totalFiles > 0) && (
-          <div className="mb-4 flex items-center gap-2 text-[12px] text-white/45">
-            <span>Файл {launchUi.currentFile} / {launchUi.totalFiles}</span>
-            {launchUi.currentFileName && <span className="truncate">{launchUi.currentFileName}</span>}
-          </div>
-        )}
-
         <button
+          type="button"
           onClick={() => setShowLogs((v) => !v)}
-          className="mb-2 flex items-center gap-1.5 self-end rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-[11px] text-white/45 transition-colors hover:bg-white/[0.06] hover:text-white"
+          className="mt-4 flex items-center gap-1.5 self-end rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-[11px] text-white/45 transition-colors hover:bg-white/[0.06] hover:text-white"
         >
           <IconChevronDown className={`h-3.5 w-3.5 transition-transform ${showLogs ? "rotate-180" : ""}`} />
           {showLogs ? "Скрыть журнал" : "Показать журнал"}
         </button>
 
         {showLogs && (
-          <div className="h-[260px] overflow-y-auto rounded-xl border border-white/[0.06] bg-black/40 p-3 font-mono text-[11px] leading-relaxed" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.15) transparent" }}>
+          <div className="mt-2 h-[180px] w-full overflow-y-auto rounded-xl border border-white/[0.06] bg-black/40 p-3 font-mono text-[11px] leading-relaxed" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.15) transparent" }}>
             {logs.length === 0 && <p className="text-white/25">Ожидание вывода...</p>}
             {logs.map((entry) => {
               const color = entry.level === "error" ? "text-red-400" : entry.level === "warn" ? "text-amber-300" : entry.level === "debug" ? "text-white/30" : "text-white/65"
@@ -85,7 +79,7 @@ export function LaunchOverlay() {
           </div>
         )}
 
-        <p className="mt-4 text-center text-[11px] text-white/25">Не закрывайте окно во время загрузки</p>
+        <p className="mt-3 text-[11px] text-white/25">Не закрывайте окно во время загрузки</p>
       </div>
     </div>,
     document.body

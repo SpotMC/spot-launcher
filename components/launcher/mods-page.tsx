@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { cn } from "@/lib/utils"
 import type { Build, ModSearchResult } from "./instance/types"
 import { IconPuzzle, IconSearch, IconLoader2, IconDownload, IconFolderOpen } from "@tabler/icons-react"
@@ -7,6 +8,7 @@ import { PageHeader } from "./page-header"
 const MODS_PER_PAGE = 24
 
 export function ModsPage() {
+  const { t } = useTranslation()
   const [query, setQuery] = useState("")
   const [debounced, setDebounced] = useState("")
   const [results, setResults] = useState<ModSearchResult[]>([])
@@ -101,7 +103,7 @@ export function ModsPage() {
       <div className="flex h-[46px] shrink-0 items-center gap-3 border-b border-white/[0.04] bg-[#0c0d10] px-4">
         <div className="flex items-center gap-2 min-w-0">
           <IconPuzzle className="w-5 h-5 text-white/70" />
-          <h1 className="text-[14px] font-semibold text-white/90">????????</h1>
+          <h1 className="text-[14px] font-semibold text-white/90">{t("sidebar.mods")}</h1>
         </div>
         <div className="flex-1" />
         <div className="flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-2.5 h-9 transition-colors focus-within:border-[#5a6ff2]/50 min-[900px]:w-72">
@@ -109,7 +111,7 @@ export function ModsPage() {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="?????????? ??????????..."
+            placeholder={t("mods.searchPlaceholder")}
             className="w-full bg-transparent text-[12px] text-white placeholder:text-white/25 outline-none"
           />
         </div>
@@ -120,7 +122,7 @@ export function ModsPage() {
             onChange={(e) => setTargetBuildId(e.target.value)}
             className="bg-transparent text-[12px] text-white outline-none [&>option]:bg-[#141519]"
           >
-            <option value="">{builds.length === 0 ? "?????? ????????????" : targetBuild?.name ?? "???????????????? ????????????..."}</option>
+            <option value="">{builds.length === 0 ? t("builds.noBuilds") : targetBuild?.name ?? t("mods.chooseBuild")}</option>
             {builds.map((b) => (
               <option key={b.id} value={b.id}>{b.name}</option>
             ))}
@@ -128,56 +130,29 @@ export function ModsPage() {
         </div>
         {builds.length === 0 && (
           <p className="text-[11px] text-amber-400/80 min-[900px]:w-full">
-            ?? ?????? ?????? ????????????. ???????????????? ?????? ???????????????????? ????????????, ?????????? ?????????????????????????? ?? ?????? ????????.
+            {t("mods.noBuildsHelp")}
           </p>
         )}
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto p-4" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.08) transparent" }}>
-        <div className="flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-2.5 h-9 transition-colors focus-within:border-[#5a6ff2]/50 min-[900px]:w-72">
-          <IconSearch className="w-3.5 h-3.5 text-white/30" />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="?????????? ??????????..."
-            className="w-full bg-transparent text-[12px] text-white placeholder:text-white/25 outline-none"
-          />
-        </div>
-        <div className="flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-2.5 h-9">
-          <IconFolderOpen className="w-3.5 h-3.5 text-white/30" />
-          <select
-            value={targetBuildId}
-            onChange={(e) => setTargetBuildId(e.target.value)}
-            className="bg-transparent text-[12px] text-white outline-none [&>option]:bg-[#141519]"
-          >
-            <option value="">{builds.length === 0 ? "?????? ????????????" : targetBuild?.name ?? "???????????????? ????????????..."}</option>
-            {builds.map((b) => (
-              <option key={b.id} value={b.id}>{b.name}</option>
-            ))}
-          </select>
-        </div>
-        {builds.length === 0 && (
-          <p className="text-[11px] text-amber-400/80 min-[900px]:w-full">
-            ?? ?????? ?????? ????????????. ???????????????? ?????? ???????????????????? ????????????, ?????????? ?????????????????????????? ?? ?????? ????????.
-          </p>
-        )}
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.08) transparent" }}>
         {loading ? (
           <div className="flex h-full items-center justify-center gap-2 text-white/40">
             <IconLoader2 className="w-5 h-5 animate-spin" />
-            <span className="text-[12px]">?????????? ??????????...</span>
+            <span className="text-[12px]">{t("mods.loading")}</span>
           </div>
         ) : results.length === 0 ? (
           <div className="flex h-full items-center justify-center">
             <div className="text-center">
               <IconPuzzle className="mx-auto h-8 w-8 text-white/15" />
               <p className="mt-3 text-[13px] text-white/40">
-                {debounced.trim() ? "???????????? ???? ??????????????." : "?????????????? ????????????, ?????????? ?????????? ????????."}
+                {debounced.trim() ? t("mods.noResults") : t("mods.startSearching")}
               </p>
               {!debounced.trim() && (
-                <p className="mt-1 text-[11px] text-white/25">????????????????: sodium, jei, lithium, create</p>
+                <p className="mt-1 text-[11px] text-white/25">{t("mods.popular")}</p>
               )}
             </div>
           </div>
@@ -201,14 +176,14 @@ export function ModsPage() {
                     <p className="truncate text-[12px] font-medium text-white">{mod.name}</p>
                     <p className="truncate text-[10px] text-white/35">{mod.summary || mod.source}</p>
                     {typeof mod.downloadCount === "number" && mod.downloadCount > 0 && (
-                      <p className="text-[10px] text-white/35">{mod.downloadCount.toLocaleString("ru-RU")} ????????????????????</p>
+                      <p className="text-[10px] text-white/35">{t("mods.downloads", { count: mod.downloadCount.toLocaleString() })}</p>
                     )}
                   </div>
                   <button
                     type="button"
                     onClick={() => installMod(mod)}
                     disabled={builds.length === 0 || isInstalled || isBusy}
-                    title={builds.length === 0 ? "?????? ???????????? ??? ???????????????? ?????? ???????????????????? ????????????" : isInstalled ? "?????? ????????????????????" : `???????????????????? ?? ${targetBuild?.name ?? "????????????"}`}
+                    title={builds.length === 0 ? t("mods.createBuildFirst") : isInstalled ? t("mods.alreadyInstalled") : t("mods.installToBuild", { build: targetBuild?.name ?? t("builds.unnamed") })}
                     className={cn(
                       "flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-medium text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
                       isInstalled ? "bg-emerald-500/20 text-emerald-300" : "bg-[#5a6ff2] hover:bg-[#6c7ff6]",
@@ -217,11 +192,11 @@ export function ModsPage() {
                     {isBusy ? (
                       <IconLoader2 className="h-3.5 w-3.5 animate-spin" />
                     ) : isInstalled ? (
-                      "????????????????????"
+                      t("mods.alreadyInstalled")
                     ) : (
                       <>
                         <IconDownload className="h-3.5 w-3.5" />
-                        ??????????????
+                        {t("builds.install")}
                       </>
                     )}
                   </button>

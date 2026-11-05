@@ -31,52 +31,44 @@
     </script>
     <div id="splash">
       <style>
-        #splash{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#0c0d10;color:#fff;font-family:'Inter',system-ui,-apple-system,sans-serif}
-        #splash:after{content:'';position:absolute;inset:0;background:
-          radial-gradient(1200px 600px at 20% -20%, #5a6ff2 0%, transparent 55%),
-          radial-gradient(900px 500px at 85% 120%, #8d9ff5 0%, transparent 50%),
-          radial-gradient(500px 350px at 70% -15%, rgba(141,159,245,0.08) 0%, transparent 55%)}
-        #splash .grid{position:absolute;inset:0;opacity:.3;background-image:linear-gradient(rgba(255,255,255,0.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.02) 1px,transparent 1px);background-size:64px 64px;mask-image:radial-gradient(circle at 50% 45%,#000 0%,transparent 70%);pointer-events:none}
-        #splash .glow-orb{position:absolute;width:12px;height:12px;border-radius:50%;background:#5a6ff2;filter:blur(2px);opacity:.5;pointer-events:none;animation:floatOrb 18s ease-in-out infinite}
-        #splash .glow-orb.two{background:#8d9ff5;animation-delay:-9s}
-        #splash .stage{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;text-align:center}
-        #splash .logo-container{position:relative;width:140px;height:140px;display:flex;align-items:center;justify-content:center;animation:logoFloat 3s ease-in-out infinite}
-        #splash .logo-ring{position:absolute;inset:-8px;border-radius:50%;border:1px solid rgba(90,111,242,0.15);background:conic-gradient(from 0deg,transparent 0 45%,#5a6ff2 50%,transparent 55% 100%);opacity:.4;filter:blur(1px);animation:ringSpin 8s linear infinite;mask-image:radial-gradient(circle,transparent 60%,#000 62%,#000 72%,transparent 75%)}
-        #splash .logo-glow{position:absolute;inset:-20px;border-radius:50%;background:radial-gradient(circle,#5a6ff2 0%,transparent 70%);opacity:.15;filter:blur(20px);animation:glowPulse 4s ease-in-out infinite}
-        #splash .logo{width:110px;height:110px;object-fit:contain;filter:drop-shadow(0 8px 24px rgba(90,111,242,0.3));animation:logoScale 4s ease-in-out infinite}
-        #splash .title{margin-top:32px;font-size:28px;font-weight:700;letter-spacing:.3px;background:linear-gradient(90deg,#fff 0%,#8d9ff5 50%,#fff 100%);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation:titleShine 5s linear infinite;font-family:'Unbounded','Inter',sans-serif}
-        #splash .subtitle{margin-top:8px;font-size:12px;letter-spacing:.3em;text-transform:uppercase;color:rgba(255,255,255,.25);font-weight:500}
-        #splash .progress-container{margin-top:40px;width:min(380px,80vw)}
-        #splash .progress-bar{height:4px;border-radius:4px;background:rgba(255,255,255,0.08);overflow:hidden;position:relative}
-        #splash .progress-fill{height:100%;background:linear-gradient(90deg,#5a6ff2,#8d9ff5);width:0%;transition:width .4s cubic-bezier(.25,.1,.25,1);box-shadow:0 0 20px rgba(90,111,242,0.4)}
-        #splash .progress-fill:after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.4),transparent);transform:translateX(-100%);animation:progressSweep 2s linear infinite}
-        #splash .status{margin-top:16px;font-size:13px;letter-spacing:.15px;color:rgba(255,255,255,.5);font-weight:400}
-        #splash .status .highlight{color:#8d9ff5;font-weight:500}
-        #splash .loading-dots{display:inline-flex;gap:4px;margin-left:8px}
-        #splash .loading-dots span{width:5px;height:5px;border-radius:50%;background:#5a6ff2;animation:dotBounce 1.4s ease-in-out infinite}
-        #splash .loading-dots span:nth-child(2){animation-delay:.2s}
-        #splash .loading-dots span:nth-child(3){animation-delay:.4s}
-        @keyframes floatOrb{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(80px,-60px) scale(1.2)}66%{transform:translate(-40px,40px) scale(0.9)}}
-        @keyframes logoFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+        html,body{margin:0;background:#0c0d10}
+        #splash{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#0c0d10;color:#fff;font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;-webkit-app-region:drag;user-select:none}
+        #splash:before{content:'';position:absolute;inset:0;pointer-events:none;background:
+          radial-gradient(220px 140px at 50% 0%, color-mix(in srgb, var(--splash-hex,#8d9ff5) 42%, transparent), transparent 72%),
+          radial-gradient(180px 120px at 50% 100%, color-mix(in srgb, var(--splash-hex2,#b9c4fa) 28%, transparent), transparent 70%)}
+        #splash:after{content:'';position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.07);border-radius:18px}
+        #splash .stage{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;text-align:center;padding:28px 32px 32px}
+        #splash .logo-container{position:relative;width:108px;height:108px;display:flex;align-items:center;justify-content:center;animation:logoFloat 3.2s ease-in-out infinite}
+        #splash .logo-ring{position:absolute;inset:-6px;border-radius:50%;background:conic-gradient(from 0deg,transparent 0 62%,var(--splash-hex,#8d9ff5) 78%,transparent 92%);opacity:.85;animation:ringSpin 2.8s linear infinite;-webkit-mask:radial-gradient(circle,transparent 62%,#000 64%);mask:radial-gradient(circle,transparent 62%,#000 64%)}
+        #splash .logo-glow{position:absolute;inset:-18px;border-radius:50%;background:radial-gradient(circle,var(--splash-hex,#8d9ff5) 0%,transparent 68%);opacity:.22;filter:blur(12px);animation:glowPulse 3.2s ease-in-out infinite}
+        #splash .logo{width:78px;height:78px;object-fit:contain;filter:drop-shadow(0 10px 22px rgba(90,111,242,.45));animation:logoScale 3.6s ease-in-out infinite}
+        #splash .title{margin-top:18px;font-size:22px;font-weight:700;letter-spacing:-.02em;color:#f4f6ff;font-family:'Unbounded','Inter',sans-serif}
+        #splash .subtitle{margin-top:6px;font-size:10px;letter-spacing:.28em;text-transform:uppercase;color:rgba(255,255,255,.38);font-weight:600}
+        #splash .progress-container{margin-top:26px;width:220px}
+        #splash .progress-bar{position:relative;height:3px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden}
+        #splash .progress-fill{position:absolute;top:0;bottom:0;left:0;width:36%;border-radius:inherit;background:linear-gradient(90deg,transparent,var(--splash-hex,#8d9ff5),#fff,var(--splash-hex2,#b9c4fa));animation:indet 1.15s ease-in-out infinite}
+        #splash .progress-fill.determinate{animation:none;background:linear-gradient(90deg,var(--splash-hex,#5a6ff2),var(--splash-hex2,#b9c4fa));box-shadow:0 0 14px color-mix(in srgb,var(--splash-hex,#8d9ff5) 60%,transparent);transition:width .35s cubic-bezier(.25,.1,.25,1)}
+        #splash .status{margin-top:14px;min-height:16px;font-size:12px;letter-spacing:.01em;color:rgba(255,255,255,.55);font-weight:500}
+        #splash .loading-dots{display:inline-flex;gap:3px;margin-left:7px;vertical-align:middle}
+        #splash .loading-dots span{width:3px;height:3px;border-radius:50%;background:var(--splash-hex,#8d9ff5);animation:dotBounce 1.2s ease-in-out infinite}
+        #splash .loading-dots span:nth-child(2){animation-delay:.15s}
+        #splash .loading-dots span:nth-child(3){animation-delay:.3s}
+        @keyframes logoFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
         @keyframes ringSpin{to{transform:rotate(360deg)}}
-        @keyframes glowPulse{0%,100%{opacity:.12}50%{opacity:.22}}
-        @keyframes logoScale{0%,100%{transform:scale(1)}50%{transform:scale(1.04)}}
-        @keyframes titleShine{to{background-position:-200% 0}}
-        @keyframes progressSweep{to{transform:translateX(100%)}}
-        @keyframes dotBounce{0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-6px);opacity:1}}
-        #splash.fade{opacity:0;transition:opacity .5s cubic-bezier(.4,0,.2,1)}
+        @keyframes glowPulse{0%,100%{opacity:.16}50%{opacity:.32}}
+        @keyframes logoScale{0%,100%{transform:scale(1)}50%{transform:scale(1.035)}}
+        @keyframes indet{0%{transform:translateX(-140%)}100%{transform:translateX(340%)}}
+        @keyframes dotBounce{0%,70%,100%{opacity:.35}35%{opacity:1}}
+        #splash.fade{opacity:0;transition:opacity .32s ease}
       </style>
-      <div class="grid"></div>
-      <div class="glow-orb" style="top:15%;left:12%"></div>
-      <div class="glow-orb two" style="bottom:18%;right:15%"></div>
       <div class="stage">
         <div class="logo-container">
-          <div class="logo-ring"></div>
           <div class="logo-glow"></div>
+          <div class="logo-ring"></div>
           <img class="logo" src="./spot-logo-mono-2.png" alt="Spot" draggable="false" />
         </div>
         <div class="title">Spot Launcher</div>
-        <div class="subtitle">Инициализация</div>
+        <div class="subtitle" id="splash-subtitle">Инициализация</div>
         <div class="progress-container">
           <div class="progress-bar">
             <div class="progress-fill" id="splash-bar"></div>

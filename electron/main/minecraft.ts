@@ -155,6 +155,7 @@ const versionHandlers: IpcHandlerDef[] = [
 // ---------- Launch Handlers ----------
 
 const launchHandlers: IpcHandlerDef[] = [
+  rawHandler("minecraft:is-running", async () => isLaunchActive()),
   rawHandler("minecraft:launch", async (...args: unknown[]): Promise<LaunchResultPayload> => {
     const options = args[0] as MinecraftLaunchParams
     const { resolveLaunchRequest } = await loadSpotModule()

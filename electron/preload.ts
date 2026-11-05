@@ -161,6 +161,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   maximize: () => ipcRenderer.send('window:maximize'),
   close: () => ipcRenderer.send('window:close'),
   isMaximized: invoke<boolean>('window:is-maximized'),
+  notifyUiReady: () => ipcRenderer.send('window:ui-ready'),
 
   // ── Legal documents window ─────────────────────────────
   openLegalWindow: invoke<void>('legal:open'),
